@@ -1,0 +1,27 @@
+# 构建输出
+build/
+cmake-build-*/
+out/
+*.user
+*.autosave
+
+# 编译器中间产物
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.exe
+*.pdb
+*.ilk
+
+# Qt 自动生成（由 CMake AUTOMOC/AUTOUIC/AUTORCC 生成到构建目录）
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+.qmake.stash
+
+# IDE
+.vs/
+.vscode/
+CMakeLists.txt.user
