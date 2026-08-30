@@ -73,6 +73,10 @@ cmake --build build -j
 build/SimpleFrpPanel.exe
 ```
 
+> 构建完成后会自动把运行库部署到 exe 同目录（`windeployqt` 复制 Qt 运行库与
+> 平台插件，并复制 `ElaWidgetTools.dll` 与 MinGW 运行时），因此从 CLion、
+> 命令行或双击运行都不需要额外配置 PATH，不会出现 `0xC0000135`（DLL 缺失）报错。
+
 > 未通过 `-DQT_SDK_DIR` 指定 Qt 时，CMake 会自动回退到本机默认 Qt 套件
 > （`F:/Software/Qt5/Qt5.14.2/5.14.2/mingw73_64`，仅本机路径存在时生效）。
 > 配置阶段会打印实际使用的 Qt 版本并做两项硬校验：

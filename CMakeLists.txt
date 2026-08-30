@@ -89,3 +89,36 @@ target_link_libraries(SimpleFrpPanel PRIVATE Ela::WidgetTools)
 if(MSVC)
     target_compile_options(SimpleFrpPanel PRIVATE /utf-8)
 endif()
+
+# ---------------------------------------------------------------------------
+# 运行库自动部署（Windows）：
+# 1) ElaWidgetTools.dll 复制到可执行文件目录
+# 2) windeployqt 复制 Qt 运行库与平台插件（platforms/qwindows.dll 等）
+# 保证从 CLion / 命令行 / 双击运行时都不依赖 PATH，避免 0xC0000135 报错
+# ---------------------------------------------------------------------------
+if(WIN32)
+    add_custom_command(TARGET SimpleFrpPanel POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            $<TARGET_FILE:ElaWidgetTools>
+            $<TARGET_FILE_DIR:SimpleFrpPanel>/ElaWidgetTools.dll
+        COMMENT "复制 ElaWidgetTools.dll 到可执行文件目录"
+    )
+
+    get_filename_component(MINGW_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(WINDEPLOYQT_EXECUTABLE
+        NAMES windeployqt windeployqt.exe
+        HINTS "${QT_SDK_DIR}/bin"
+    )
+    if(WINDEPLOYQT_EXECUTABLE)
+        add_custom_command(TARGET SimpleFrpPanel POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E env
+                "PATH=${QT_SDK_DIR}/bin;${MINGW_BIN};$ENV{PATH}"
+                "${WINDEPLOYQT_EXECUTABLE}"
+                --no-translations
+                $<TARGET_FILE:SimpleFrpPanel>
+            COMMENT "windeployqt 部署 Qt 运行库"
+        )
+    else()
+        message(WARNING "未找到 windeployqt，跳过 Qt 运行库部署；运行前需将 Qt 的 bin 目录加入 PATH")
+    endif()
+endif()
