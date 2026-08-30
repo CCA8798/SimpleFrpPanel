@@ -73,6 +73,23 @@ cmake --build build -j
 build/SimpleFrpPanel.exe
 ```
 
+> 未通过 `-DQT_SDK_DIR` 指定 Qt 时，CMake 会自动回退到本机默认 Qt 套件
+> （`F:/Software/Qt5/Qt5.14.2/5.14.2/mingw73_64`，仅本机路径存在时生效）。
+> 配置阶段会打印实际使用的 Qt 版本并做两项硬校验：
+> - **版本**：必须是 5.12 ~ 6.7.0（防止 PATH 里残留的旧 Qt 如 5.9.1 被误选，报错会给出明确提示）
+> - **ABI**：MinGW 编译器必须搭配 MinGW 版 Qt，MSVC 同理
+
+## CLion 使用
+
+1. 打开项目（`File → Open`，选择根目录的 `CMakeLists.txt`）
+2. 工具链：`Settings → Build, Execution, Deployment → Toolchains`，新建 MinGW
+   工具链，编译器指向 `F:\Software\Qt5\Qt5.14.2\Tools\mingw730_64\bin\gcc.exe`
+3. CMake 配置：`Settings → Build, Execution, Deployment → CMake`，选择该工具链
+   的 profile，**无需**额外传参（Qt 路径会自动回退到本机默认套件）；
+   若想显式指定，可在 "CMake options" 中添加：
+   `-DQT_SDK_DIR=F:/Software/Qt5/Qt5.14.2/5.14.2/mingw73_64`
+4. 直接点构建/运行即可；运行时会自动带上 Qt 与 ElaWidgetTools 的 DLL 路径
+
 ## 子模块说明
 
 `include/ElaWidgetTools` 是 git submodule，指向
