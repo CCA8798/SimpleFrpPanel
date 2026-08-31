@@ -111,7 +111,7 @@
            </size>
           </property>
           <property name="echoMode">
-           <enum>QLineEdit::Password</enum>
+           <enum>QLineEdit::EchoMode::Password</enum>
           </property>
          </widget>
         </item>
@@ -131,6 +131,12 @@
         </item>
         <item>
          <widget class="ElaText" name="connStatusLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>未连接</string>
           </property>
@@ -198,7 +204,7 @@
          </widget>
         </item>
         <item>
-         <widget class="StatusLight" name="frpcStatusLight">
+         <widget class="StatusLight" name="frpcStatusLight" native="true">
           <property name="toolTip">
            <string>frpc 运行状态</string>
           </property>
@@ -375,11 +381,6 @@
    <header>ElaLineEdit.h</header>
   </customwidget>
   <customwidget>
-   <class>ElaPlainTextEdit</class>
-   <extends>QPlainTextEdit</extends>
-   <header>ElaPlainTextEdit.h</header>
-  </customwidget>
-  <customwidget>
    <class>ElaPushButton</class>
    <extends>QPushButton</extends>
    <header>ElaPushButton.h</header>
@@ -388,6 +389,11 @@
    <class>ElaTableView</class>
    <extends>QTableView</extends>
    <header>ElaTableView.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ElaPlainTextEdit</class>
+   <extends>QPlainTextEdit</extends>
+   <header>ElaPlainTextEdit.h</header>
   </customwidget>
   <customwidget>
    <class>ElaText</class>

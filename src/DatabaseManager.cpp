@@ -11,6 +11,8 @@
 #include <QCoreApplication>
 #include <QRandomGenerator>
 
+#include "PortChecker.h"
+
 namespace {
 const QString kConnectionName = QStringLiteral("account_db");
 
@@ -530,6 +532,21 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
                                     .arg(usedCount));
             return false;
         }
+
+        // 端口占用检测：① 库内唯一（任何用户、含禁用中的隧道都不得复用同一远端端口）
+        if (remotePortInUse(remotePort, -1))
+        {
+            setError(errorMessage, QStringLiteral("远端端口 %1 已被其他隧道占用，请更换端口")
+                                    .arg(remotePort));
+            return false;
+        }
+        // ② 本机监听检测：端口可能被其他程序占用
+        if (!PortChecker::isPortFree(static_cast<quint16>(remotePort), tunnelProtocol))
+        {
+            setError(errorMessage, QStringLiteral("远端端口 %1 当前被本机其他程序占用，请更换端口")
+                                    .arg(remotePort));
+            return false;
+        }
     }
 
     QSqlQuery query(QSqlDatabase::database(kConnectionName));
@@ -598,16 +615,18 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
         return false;
     }
 
-    // 同用户重名检查（排除自身）
+    // 同用户重名检查（排除自身）；同时取出隧道当前远端端口（用于占用检测）
     int tunnelUserId = -1;
+    int currentRemotePort = 0;
     {
         QSqlQuery checkQuery(QSqlDatabase::database(kConnectionName));
         checkQuery.prepare(QStringLiteral(
-            "SELECT user_id FROM tunnels WHERE id = ?"));
+            "SELECT user_id, remote_port FROM tunnels WHERE id = ?"));
         checkQuery.addBindValue(id);
         if (checkQuery.exec() && checkQuery.next())
         {
             tunnelUserId = checkQuery.value(0).toInt();
+            currentRemotePort = checkQuery.value(1).toInt();
         }
     }
     {
@@ -666,6 +685,22 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
             setError(errorMessage, QStringLiteral("该用户端口数量已达上限 %1（当前已用 %2）")
                                     .arg(quotaUser.maxPortCount)
                                     .arg(usedCount));
+            return false;
+        }
+
+        // 端口占用检测：① 库内唯一（排除自身；任何用户、含禁用中的隧道都不得复用）
+        if (remotePortInUse(remotePort, id))
+        {
+            setError(errorMessage, QStringLiteral("远端端口 %1 已被其他隧道占用，请更换端口")
+                                    .arg(remotePort));
+            return false;
+        }
+        // ② 本机监听检测：与自身当前端口相同（隧道自身在 frps 上合法占用）时跳过
+        if (remotePort != currentRemotePort
+            && !PortChecker::isPortFree(static_cast<quint16>(remotePort), tunnelProtocol))
+        {
+            setError(errorMessage, QStringLiteral("远端端口 %1 当前被本机其他程序占用，请更换端口")
+                                    .arg(remotePort));
             return false;
         }
     }
@@ -736,6 +771,29 @@ bool DatabaseManager::tunnelNameExists(int userId, const QString& name, int excl
         query.addBindValue(userId);
         query.addBindValue(name.trimmed());
         query.addBindValue(excludeId);
+    }
+    return query.exec() && query.next();
+}
+
+bool DatabaseManager::remotePortInUse(int remotePort, int excludeTunnelId) const
+{
+    if (!isOpen())
+    {
+        return false;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (excludeTunnelId < 0)
+    {
+        query.prepare(QStringLiteral(
+            "SELECT 1 FROM tunnels WHERE remote_port = ? AND protocol IN ('tcp', 'udp')"));
+        query.addBindValue(remotePort);
+    }
+    else
+    {
+        query.prepare(QStringLiteral(
+            "SELECT 1 FROM tunnels WHERE remote_port = ? AND protocol IN ('tcp', 'udp') AND id != ?"));
+        query.addBindValue(remotePort);
+        query.addBindValue(excludeTunnelId);
     }
     return query.exec() && query.next();
 }

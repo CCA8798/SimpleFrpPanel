@@ -114,6 +114,8 @@ private:
     void closeConnection();
     bool ensureSchema(QSqlDatabase& database) const;
     bool loadUserQuota(int userId, UserInfo* user) const;
+    // 远端端口是否已被库内其他隧道占用（任意用户，含禁用隧道）
+    bool remotePortInUse(int remotePort, int excludeTunnelId) const;
     static void setError(QString* errorMessage, const QString& text);
 
     QString m_CurrentFileName;

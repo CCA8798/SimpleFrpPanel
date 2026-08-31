@@ -100,6 +100,8 @@ add_executable(SimpleFrpPanel WIN32
     src/StatusDotDelegate.cpp
     src/StatusLight.h
     src/StatusLight.cpp
+    src/PortChecker.h
+    src/PortChecker.cpp
     src/PanelApiServer.h
     src/PanelApiServer.cpp
     src/PanelClient.h
