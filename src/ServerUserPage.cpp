@@ -37,6 +37,16 @@ ServerUserPage::ServerUserPage(QWidget* parent)
 {
     m_Ui->setupUi(this);
 
+    // 标签统一使用 Ela 主题文字（跟随黑夜/白天切换），字号 13px
+    const QList<ElaText*> pageLabels = findChildren<ElaText*>();
+    for (ElaText* label : pageLabels)
+    {
+        label->setTextPixelSize(13);
+    }
+
+    // 数据库路径标签较长，关闭 ElaText 默认的自动换行，保持单行显示
+    m_Ui->dbPathLabel->setWordWrap(false);
+
     // 布局：上部（数据库部分）固定高度、紧凑，不随窗口拉伸；
     // 下部（用户部分）随窗口尺寸自动扩展（其余空间全部归下部）
     m_Ui->dbFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);

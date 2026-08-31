@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ClientTunnelPage</class>
  <widget class="QWidget" name="ClientTunnelPage">
@@ -53,7 +53,7 @@
       <item>
        <layout class="QHBoxLayout" name="loginRow">
         <item>
-         <widget class="QLabel" name="serverLabel">
+         <widget class="ElaText" name="serverLabel">
           <property name="text">
            <string>服务器</string>
           </property>
@@ -86,7 +86,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="userLabel">
+         <widget class="ElaText" name="userLabel">
           <property name="text">
            <string>用户名</string>
           </property>
@@ -167,7 +167,7 @@
       <item>
        <layout class="QHBoxLayout" name="frpcRow">
         <item>
-         <widget class="QLabel" name="frpcLabel">
+         <widget class="ElaText" name="frpcLabel">
           <property name="text">
            <string>frpc 程序</string>
           </property>

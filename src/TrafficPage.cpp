@@ -13,6 +13,7 @@
 #include "ElaCheckBox.h"
 #include "ElaMessageBar.h"
 #include "ElaPushButton.h"
+#include "ElaText.h"
 #include "ui_TrafficPage.h"
 
 namespace {
@@ -56,6 +57,14 @@ TrafficPage::TrafficPage(QWidget* parent)
     , m_TrafficModel(new QStandardItemModel(this))
 {
     m_Ui->setupUi(this);
+
+    // 标签统一使用 Ela 主题文字（跟随黑夜/白天切换），字号 13px
+    const QList<ElaText*> pageLabels = findChildren<ElaText*>();
+    for (ElaText* label : pageLabels)
+    {
+        label->setTextPixelSize(13);
+    }
+    // 汇总文字随后在构造函数后续覆盖为 12px
 
     // 顶部固定紧凑
     m_Ui->topFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);

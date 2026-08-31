@@ -46,6 +46,14 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
 {
     m_Ui->setupUi(this);
 
+    // 标签统一使用 Ela 主题文字（跟随黑夜/白天切换），字号 13px
+    const QList<ElaText*> pageLabels = findChildren<ElaText*>();
+    for (ElaText* label : pageLabels)
+    {
+        label->setTextPixelSize(13);
+    }
+    // 状态类小字随后在各自更新函数中覆盖为 12px
+
     // 顶部固定紧凑，日志区固定高度
     m_Ui->topFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_Ui->logFrame->setFixedHeight(130);

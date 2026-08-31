@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>TrafficPage</class>
  <widget class="QWidget" name="TrafficPage">
@@ -53,7 +53,7 @@
       <item>
        <layout class="QHBoxLayout" name="queryRow">
         <item>
-         <widget class="QLabel" name="dbLabel">
+         <widget class="ElaText" name="dbLabel">
           <property name="text">
            <string>数据库</string>
           </property>
@@ -70,7 +70,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="userLabel">
+         <widget class="ElaText" name="userLabel">
           <property name="text">
            <string>用户</string>
           </property>
@@ -87,7 +87,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="tunnelLabel">
+         <widget class="ElaText" name="tunnelLabel">
           <property name="text">
            <string>隧道</string>
           </property>
@@ -149,7 +149,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="dateSepLabel">
+         <widget class="ElaText" name="dateSepLabel">
           <property name="text">
            <string>至</string>
           </property>

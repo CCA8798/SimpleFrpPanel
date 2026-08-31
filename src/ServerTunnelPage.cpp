@@ -65,6 +65,14 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
 {
     m_Ui->setupUi(this);
 
+    // 标签统一使用 Ela 主题文字（跟随黑夜/白天切换），字号 13px
+    const QList<ElaText*> pageLabels = findChildren<ElaText*>();
+    for (ElaText* label : pageLabels)
+    {
+        label->setTextPixelSize(13);
+    }
+    // 状态类小字随后在各自更新函数中覆盖为 12px
+
     // 面板 API 服务：为客户端隧道管理提供 TCP 接口
     m_PanelApiServer = new PanelApiServer(m_DatabaseManager, m_FrpsManager, this);
     connect(m_PanelApiServer, &PanelApiServer::runningChanged, this, [this](bool) {

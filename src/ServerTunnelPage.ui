@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ServerTunnelPage</class>
  <widget class="QWidget" name="ServerTunnelPage">
@@ -53,7 +53,7 @@
       <item>
        <layout class="QHBoxLayout" name="dbUserRow">
         <item>
-         <widget class="QLabel" name="dbLabel">
+         <widget class="ElaText" name="dbLabel">
           <property name="text">
            <string>数据库</string>
           </property>
@@ -70,7 +70,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="userLabel">
+         <widget class="ElaText" name="userLabel">
           <property name="text">
            <string>用户</string>
           </property>
@@ -111,7 +111,7 @@
       <item>
        <layout class="QHBoxLayout" name="frpsRow">
         <item>
-         <widget class="QLabel" name="frpsLabel">
+         <widget class="ElaText" name="frpsLabel">
           <property name="text">
            <string>frps 程序</string>
           </property>
@@ -141,7 +141,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="portLabel">
+         <widget class="ElaText" name="portLabel">
           <property name="text">
            <string>端口</string>
           </property>
@@ -161,7 +161,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="webPortLabel">
+         <widget class="ElaText" name="webPortLabel">
           <property name="text">
            <string>Web</string>
           </property>
@@ -181,7 +181,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="tokenLabel">
+         <widget class="ElaText" name="tokenLabel">
           <property name="text">
            <string>Token</string>
           </property>
@@ -242,14 +242,14 @@
       <item>
        <layout class="QHBoxLayout" name="quotaRow">
         <item>
-         <widget class="QLabel" name="quotaLabel">
+         <widget class="ElaText" name="quotaLabel">
           <property name="text">
            <string>端口配额</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="remoteRangeLabel">
+         <widget class="ElaText" name="remoteRangeLabel">
           <property name="text">
            <string>远端</string>
           </property>
@@ -266,7 +266,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="remoteSepLabel">
+         <widget class="ElaText" name="remoteSepLabel">
           <property name="text">
            <string>-</string>
           </property>
@@ -283,7 +283,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="localRangeLabel">
+         <widget class="ElaText" name="localRangeLabel">
           <property name="text">
            <string>本地</string>
           </property>
@@ -300,7 +300,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="localSepLabel">
+         <widget class="ElaText" name="localSepLabel">
           <property name="text">
            <string>-</string>
           </property>
@@ -317,7 +317,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="maxCountLabel">
+         <widget class="ElaText" name="maxCountLabel">
           <property name="text">
            <string>最大端口数</string>
           </property>
@@ -358,7 +358,7 @@
       <item>
        <layout class="QHBoxLayout" name="panelServiceRow">
         <item>
-         <widget class="QLabel" name="panelServiceLabel">
+         <widget class="ElaText" name="panelServiceLabel">
           <property name="text">
            <string>面板服务</string>
           </property>
