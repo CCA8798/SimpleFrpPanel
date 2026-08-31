@@ -53,6 +53,8 @@ private:
     void updateControlsEnabled();
     void loadQuotaToUi();
     QString stateSignature() const;
+    // 启动 frps 前预检端口占用（bindPort + 仪表盘端口），给出可操作的提示
+    bool checkFrpsPortsAvailable(int bindPort, int webPort, QString* errorMessage) const;
     void updatePanelServiceUi();
     void syncPanelServiceWithDb();
     int selectedTunnelId() const;

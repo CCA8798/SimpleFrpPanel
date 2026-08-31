@@ -19,6 +19,7 @@
 #include "ElaToggleSwitch.h"
 #include "FrpsManager.h"
 #include "PanelApiServer.h"
+#include "PortChecker.h"
 #include "StatusDotDelegate.h"
 #include "TrafficMonitor.h"
 #include "TunnelEditDialog.h"
@@ -86,6 +87,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
         m_Ui->remoteMinEdit, m_Ui->remoteMaxEdit, m_Ui->localMinEdit,
         m_Ui->localMaxEdit, m_Ui->maxPortCountEdit, m_Ui->saveQuotaButton,
         m_Ui->panelPortEdit, m_Ui->panelServiceButton,
+        m_Ui->webPortEdit,
     };
     for (QWidget* widget : topWidgets)
     {
@@ -100,6 +102,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
 
     // 端口输入校验
     m_Ui->frpsPortEdit->setValidator(new QIntValidator(1, 65535, this));
+    m_Ui->webPortEdit->setValidator(new QIntValidator(1, 65535, this));
     m_Ui->remoteMinEdit->setValidator(new QIntValidator(1, 65535, this));
     m_Ui->remoteMaxEdit->setValidator(new QIntValidator(1, 65535, this));
     m_Ui->localMinEdit->setValidator(new QIntValidator(1, 65535, this));
@@ -512,12 +515,21 @@ void ServerTunnelPage::onToggleFrps()
     // 保存端口与 Token 到当前数据库
     const QString bindPort = m_Ui->frpsPortEdit->text().trimmed();
     const QString token = m_Ui->frpsTokenEdit->text().trimmed();
+    const QString webPort = m_Ui->webPortEdit->text().trimmed();
     bool portOk = false;
     const int portValue = bindPort.toInt(&portOk);
     if (!portOk || portValue < 1 || portValue > 65535)
     {
         ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
                                QStringLiteral("绑定端口必须是 1-65535 的整数"), 2000, this);
+        return;
+    }
+    bool webPortOk = false;
+    const int webPortValue = webPort.toInt(&webPortOk);
+    if (!webPortOk || webPortValue < 1 || webPortValue > 65535)
+    {
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("仪表盘端口必须是 1-65535 的整数"), 2000, this);
         return;
     }
     if (token.isEmpty())
@@ -528,6 +540,16 @@ void ServerTunnelPage::onToggleFrps()
     }
     m_DatabaseManager->setSetting(kSettingFrpsBindPort, bindPort);
     m_DatabaseManager->setSetting(kSettingFrpsToken, token);
+    m_DatabaseManager->setSetting(kSettingFrpsWebPort, webPort);
+
+    // 启动前预检端口占用（避免 frps 报 "Only one usage of each socket address"）
+    QString portError;
+    if (!checkFrpsPortsAvailable(portValue, webPortValue, &portError))
+    {
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("端口被占用"),
+                             portError, 5000, this);
+        return;
+    }
 
     applyFrpsConfig(false);
     QString errorMessage;
@@ -541,6 +563,33 @@ void ServerTunnelPage::onToggleFrps()
     }
     appendLog(QStringLiteral("[%1] frps 已启动 (配置: %2)")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), frpsConfigPath()));
+}
+
+bool ServerTunnelPage::checkFrpsPortsAvailable(int bindPort, int webPort, QString* errorMessage) const
+{
+    if (!PortChecker::isPortFree(static_cast<quint16>(bindPort), QStringLiteral("tcp")))
+    {
+        if (errorMessage)
+        {
+            *errorMessage = QStringLiteral(
+                "frps 绑定端口 %1 已被占用（可能是上一次程序异常退出后残留的 frps 进程，"
+                "或其他程序占用）。\n请结束占用该端口的进程，或修改上方端口后重试。")
+                                .arg(bindPort);
+        }
+        return false;
+    }
+    if (webPort > 0 && !PortChecker::isPortFree(static_cast<quint16>(webPort), QStringLiteral("tcp")))
+    {
+        if (errorMessage)
+        {
+            *errorMessage = QStringLiteral(
+                "frps 仪表盘端口 %1 已被占用（可能是上一次程序异常退出后残留的 frps 进程，"
+                "或其他程序占用）。\n请结束占用该端口的进程，或修改 Web 端口后重试。")
+                                .arg(webPort);
+        }
+        return false;
+    }
+    return true;
 }
 
 void ServerTunnelPage::onTogglePanelService()
@@ -914,13 +963,17 @@ void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)
         return;
     }
 
-    // 仪表盘（流量监控数据源）：端口/账号/密码，密码首次自动生成
-    QString webPort = m_DatabaseManager->getSetting(kSettingFrpsWebPort);
+    // 仪表盘（流量监控数据源）：端口优先取界面输入，账号/密码首次自动生成
+    QString webPort = m_Ui->webPortEdit->text().trimmed();
+    if (webPort.isEmpty())
+    {
+        webPort = m_DatabaseManager->getSetting(kSettingFrpsWebPort);
+    }
     if (webPort.trimmed().isEmpty())
     {
         webPort = QStringLiteral("7500");
-        m_DatabaseManager->setSetting(kSettingFrpsWebPort, webPort);
     }
+    m_DatabaseManager->setSetting(kSettingFrpsWebPort, webPort);
     QString webUser = m_DatabaseManager->getSetting(kSettingFrpsWebUser);
     if (webUser.trimmed().isEmpty())
     {
@@ -933,6 +986,7 @@ void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)
         webPassword = randomHexToken(16);
         m_DatabaseManager->setSetting(kSettingFrpsWebPassword, webPassword);
     }
+    m_Ui->webPortEdit->setText(webPort);
 
     QString errorMessage;
     if (!FrpsManager::generateConfig(frpsConfigPath(), bindPort.toUShort(), token,
@@ -948,6 +1002,16 @@ void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)
 
     if (restartIfRunning && m_FrpsManager->isRunning())
     {
+        // 重启前预检端口占用（可能是上次异常退出残留的 frps 进程占着端口）
+        QString portError;
+        if (!checkFrpsPortsAvailable(bindPort.toInt(), webPort.toInt(), &portError))
+        {
+            ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("端口被占用"),
+                                 portError, 5000, this);
+            appendLog(QStringLiteral("[%1] frps 重启被拒绝: %2")
+                          .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), portError));
+            return;
+        }
         m_FrpsManager->stop();
         QString startError;
         if (!m_FrpsManager->start(frpsConfigPath(), &startError))

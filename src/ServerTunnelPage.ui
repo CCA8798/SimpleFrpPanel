@@ -121,7 +121,7 @@
          <widget class="ElaLineEdit" name="frpsPathEdit">
           <property name="minimumSize">
            <size>
-            <width>300</width>
+            <width>240</width>
             <height>0</height>
            </size>
           </property>
@@ -154,6 +154,29 @@
             <width>70</width>
             <height>0</height>
            </size>
+          </property>
+          <property name="toolTip">
+           <string>frps 绑定端口（客户端 frpc 连接端口）</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="webPortLabel">
+          <property name="text">
+           <string>Web</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaLineEdit" name="webPortEdit">
+          <property name="minimumSize">
+           <size>
+            <width>60</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>frps 仪表盘端口（流量监控数据源）</string>
           </property>
          </widget>
         </item>
