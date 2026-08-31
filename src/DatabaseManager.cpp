@@ -846,9 +846,10 @@ QList<DatabaseManager::TrafficSummary> DatabaseManager::queryTunnelTraffic(int u
     QSqlQuery query(QSqlDatabase::database(kConnectionName));
     if (dateFrom.trimmed().isEmpty() && dateTo.trimmed().isEmpty())
     {
+        // 按 tunnel_id 稳定排序：页面增量更新依赖行序稳定（避免流量变化导致行跳动）
         query.prepare(QStringLiteral(
             "SELECT tunnel_id, MAX(tunnel_name), SUM(bytes_in), SUM(bytes_out)"
-            " FROM traffic_records WHERE user_id = ? GROUP BY tunnel_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+            " FROM traffic_records WHERE user_id = ? GROUP BY tunnel_id ORDER BY tunnel_id"));
         query.addBindValue(userId);
     }
     else
@@ -856,7 +857,7 @@ QList<DatabaseManager::TrafficSummary> DatabaseManager::queryTunnelTraffic(int u
         query.prepare(QStringLiteral(
             "SELECT tunnel_id, MAX(tunnel_name), SUM(bytes_in), SUM(bytes_out)"
             " FROM traffic_records WHERE user_id = ? AND record_date BETWEEN ? AND ?"
-            " GROUP BY tunnel_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+            " GROUP BY tunnel_id ORDER BY tunnel_id"));
         query.addBindValue(userId);
         query.addBindValue(dateFrom.trimmed());
         query.addBindValue(dateTo.trimmed());
@@ -890,14 +891,14 @@ QList<DatabaseManager::TrafficSummary> DatabaseManager::queryUserTraffic(const Q
     {
         query.prepare(QStringLiteral(
             "SELECT user_id, MAX(user_name), SUM(bytes_in), SUM(bytes_out)"
-            " FROM traffic_records GROUP BY user_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+            " FROM traffic_records GROUP BY user_id ORDER BY user_id"));
     }
     else
     {
         query.prepare(QStringLiteral(
             "SELECT user_id, MAX(user_name), SUM(bytes_in), SUM(bytes_out)"
             " FROM traffic_records WHERE record_date BETWEEN ? AND ?"
-            " GROUP BY user_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+            " GROUP BY user_id ORDER BY user_id"));
         query.addBindValue(dateFrom.trimmed());
         query.addBindValue(dateTo.trimmed());
     }

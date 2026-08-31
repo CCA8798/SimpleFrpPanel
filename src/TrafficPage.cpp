@@ -356,27 +356,39 @@ void TrafficPage::runQuery()
     }
     m_LastQuerySignature = signature;
 
-    // 第三步：重建表格
-    m_TrafficModel->setRowCount(0);
-    for (const Row& row : rows)
+    // 第三步：增量更新表格——行结构不变时只改数值变化的单元格，
+    // 保持滚动位置与选择，避免每 5 秒整表重建导致的卡顿
+    const int oldRowCount = m_TrafficModel->rowCount();
+    if (rows.size() < oldRowCount)
     {
-        const int modelRow = m_TrafficModel->rowCount();
-        m_TrafficModel->insertRow(modelRow);
-        QStandardItem* userItem = new QStandardItem(row.user);
-        userItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(modelRow, 0, userItem);
-        QStandardItem* tunnelItem = new QStandardItem(row.tunnel);
-        tunnelItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(modelRow, 1, tunnelItem);
-        QStandardItem* inItem = new QStandardItem(formatBytes(row.bytesIn));
-        inItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(modelRow, 2, inItem);
-        QStandardItem* outItem = new QStandardItem(formatBytes(row.bytesOut));
-        outItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(modelRow, 3, outItem);
-        QStandardItem* totalItem = new QStandardItem(formatBytes(row.bytesIn + row.bytesOut));
-        totalItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(modelRow, 4, totalItem);
+        m_TrafficModel->removeRows(rows.size(), oldRowCount - rows.size());
+    }
+    while (m_TrafficModel->rowCount() < rows.size())
+    {
+        m_TrafficModel->insertRow(m_TrafficModel->rowCount());
+    }
+    auto setCell = [this](int row, int column, const QString& text) {
+        QStandardItem* item = m_TrafficModel->item(row, column);
+        if (item && item->text() == text)
+        {
+            return; // 值未变化，不触发重绘
+        }
+        if (!item)
+        {
+            item = new QStandardItem();
+            m_TrafficModel->setItem(row, column, item);
+        }
+        item->setText(text);
+        item->setTextAlignment(Qt::AlignCenter);
+    };
+    for (int i = 0; i < rows.size(); ++i)
+    {
+        const Row& row = rows[i];
+        setCell(i, 0, row.user);
+        setCell(i, 1, row.tunnel);
+        setCell(i, 2, formatBytes(row.bytesIn));
+        setCell(i, 3, formatBytes(row.bytesOut));
+        setCell(i, 4, formatBytes(row.bytesIn + row.bytesOut));
     }
     m_Ui->totalLabel->setText(totalText);
 }
