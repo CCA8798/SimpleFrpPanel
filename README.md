@@ -63,6 +63,11 @@ SimpleFrpPanel/
 > 选择本机 `frpc.exe` 后自动生成 `frpc.toml`（服务器地址/端口/token 由登录响应下发，
 > proxies 来自启用的隧道），启动/停止/状态灯/日志一应俱全，隧道变更时自动热重启——
 > 至此 内网服务（frpc）↔ 公网服务器（frps）↔ 外网访问 全链路可真实打通。
+> **后台运行**：点击主窗口关闭按钮（叉号）或按 Alt+F4 时程序隐藏到**系统托盘**继续后台
+> 运行（轮询、流量记录、frps/frpc 管理均不中断）；左键单击托盘图标恢复主界面，
+> **仅可通过托盘右键菜单"退出"真正关闭程序**（退出时自动停止 frps/frpc）。
+> 无系统托盘的环境自动回退为正常关闭行为。
+
 > **流量记录**：frps.toml 自动启用仪表盘 `webServer`（端口 7500，密码随机生成存于数据库
 > 设置）；`TrafficMonitor` 每 10 秒轮询 `GET /api/proxy/{type}/{name}`（Basic 认证），
 > 取 `todayTrafficIn/Out` 增量，按 **用户+隧道+日期** 累加写入 `traffic_records` 表
