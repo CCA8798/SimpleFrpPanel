@@ -85,6 +85,11 @@ add_executable(SimpleFrpPanel WIN32
     src/ServerUserPage.h
     src/ServerUserPage.cpp
     src/ServerUserPage.ui
+    src/TrafficPage.h
+    src/TrafficPage.cpp
+    src/TrafficPage.ui
+    src/TrafficMonitor.h
+    src/TrafficMonitor.cpp
     src/ClientTunnelPage.h
     src/ClientTunnelPage.cpp
     src/ClientTunnelPage.ui

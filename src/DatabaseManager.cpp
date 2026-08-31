@@ -798,6 +798,174 @@ bool DatabaseManager::remotePortInUse(int remotePort, int excludeTunnelId) const
     return query.exec() && query.next();
 }
 
+bool DatabaseManager::addTraffic(int userId, const QString& userName, int tunnelId,
+                                 const QString& tunnelName, const QString& recordDate,
+                                 qint64 bytesIn, qint64 bytesOut)
+{
+    if (!isOpen())
+    {
+        return false;
+    }
+    if (bytesIn <= 0 && bytesOut <= 0)
+    {
+        return true; // 无增量，跳过
+    }
+    QSqlDatabase database = QSqlDatabase::database(kConnectionName);
+    // 先尝试累加已有记录
+    QSqlQuery updateQuery(database);
+    updateQuery.prepare(QStringLiteral(
+        "UPDATE traffic_records SET bytes_in = bytes_in + ?, bytes_out = bytes_out + ?"
+        " WHERE user_id = ? AND tunnel_id = ? AND record_date = ?"));
+    updateQuery.addBindValue(bytesIn);
+    updateQuery.addBindValue(bytesOut);
+    updateQuery.addBindValue(userId);
+    updateQuery.addBindValue(tunnelId);
+    updateQuery.addBindValue(recordDate);
+    if (updateQuery.exec() && updateQuery.numRowsAffected() > 0)
+    {
+        return true;
+    }
+    // 不存在则插入新记录
+    QSqlQuery insertQuery(database);
+    insertQuery.prepare(QStringLiteral(
+        "INSERT OR REPLACE INTO traffic_records"
+        " (user_id, user_name, tunnel_id, tunnel_name, record_date, bytes_in, bytes_out)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)"));
+    insertQuery.addBindValue(userId);
+    insertQuery.addBindValue(userName.trimmed().isEmpty() ? QStringLiteral("(已删除用户)") : userName.trimmed());
+    insertQuery.addBindValue(tunnelId);
+    insertQuery.addBindValue(tunnelName.trimmed().isEmpty() ? QStringLiteral("(已删除隧道)") : tunnelName.trimmed());
+    insertQuery.addBindValue(recordDate);
+    insertQuery.addBindValue(bytesIn);
+    insertQuery.addBindValue(bytesOut);
+    return insertQuery.exec();
+}
+
+QList<DatabaseManager::TrafficSummary> DatabaseManager::queryTunnelTraffic(int userId,
+                                                                           const QString& dateFrom,
+                                                                           const QString& dateTo) const
+{
+    QList<TrafficSummary> summaries;
+    if (!isOpen())
+    {
+        return summaries;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (dateFrom.trimmed().isEmpty() && dateTo.trimmed().isEmpty())
+    {
+        query.prepare(QStringLiteral(
+            "SELECT tunnel_id, MAX(tunnel_name), SUM(bytes_in), SUM(bytes_out)"
+            " FROM traffic_records WHERE user_id = ? GROUP BY tunnel_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+        query.addBindValue(userId);
+    }
+    else
+    {
+        query.prepare(QStringLiteral(
+            "SELECT tunnel_id, MAX(tunnel_name), SUM(bytes_in), SUM(bytes_out)"
+            " FROM traffic_records WHERE user_id = ? AND record_date BETWEEN ? AND ?"
+            " GROUP BY tunnel_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+        query.addBindValue(userId);
+        query.addBindValue(dateFrom.trimmed());
+        query.addBindValue(dateTo.trimmed());
+    }
+    if (!query.exec())
+    {
+        return summaries;
+    }
+    while (query.next())
+    {
+        TrafficSummary summary;
+        summary.id = query.value(0).toInt();
+        summary.name = query.value(1).toString();
+        summary.bytesIn = query.value(2).toLongLong();
+        summary.bytesOut = query.value(3).toLongLong();
+        summaries.append(summary);
+    }
+    return summaries;
+}
+
+QList<DatabaseManager::TrafficSummary> DatabaseManager::queryUserTraffic(const QString& dateFrom,
+                                                                         const QString& dateTo) const
+{
+    QList<TrafficSummary> summaries;
+    if (!isOpen())
+    {
+        return summaries;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (dateFrom.trimmed().isEmpty() && dateTo.trimmed().isEmpty())
+    {
+        query.prepare(QStringLiteral(
+            "SELECT user_id, MAX(user_name), SUM(bytes_in), SUM(bytes_out)"
+            " FROM traffic_records GROUP BY user_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+    }
+    else
+    {
+        query.prepare(QStringLiteral(
+            "SELECT user_id, MAX(user_name), SUM(bytes_in), SUM(bytes_out)"
+            " FROM traffic_records WHERE record_date BETWEEN ? AND ?"
+            " GROUP BY user_id ORDER BY SUM(bytes_in) + SUM(bytes_out) DESC"));
+        query.addBindValue(dateFrom.trimmed());
+        query.addBindValue(dateTo.trimmed());
+    }
+    if (!query.exec())
+    {
+        return summaries;
+    }
+    while (query.next())
+    {
+        TrafficSummary summary;
+        summary.id = query.value(0).toInt();
+        summary.name = query.value(1).toString();
+        summary.bytesIn = query.value(2).toLongLong();
+        summary.bytesOut = query.value(3).toLongLong();
+        summaries.append(summary);
+    }
+    return summaries;
+}
+
+DatabaseManager::TrafficSummary DatabaseManager::queryUserTotalTraffic(int userId) const
+{
+    TrafficSummary summary;
+    if (!isOpen())
+    {
+        return summary;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "SELECT MAX(user_name), SUM(bytes_in), SUM(bytes_out)"
+        " FROM traffic_records WHERE user_id = ?"));
+    query.addBindValue(userId);
+    if (query.exec() && query.next())
+    {
+        summary.name = query.value(0).toString();
+        summary.bytesIn = query.value(1).toLongLong();
+        summary.bytesOut = query.value(2).toLongLong();
+    }
+    return summary;
+}
+
+QStringList DatabaseManager::queryTrafficTunnelNames(int userId) const
+{
+    QStringList names;
+    if (!isOpen())
+    {
+        return names;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "SELECT DISTINCT tunnel_name FROM traffic_records WHERE user_id = ? ORDER BY tunnel_name"));
+    query.addBindValue(userId);
+    if (query.exec())
+    {
+        while (query.next())
+        {
+            names.append(query.value(0).toString());
+        }
+    }
+    return names;
+}
+
 QString DatabaseManager::hashPassword(const QString& password)
 {
     const QByteArray salt = randomBytes(16);
@@ -985,8 +1153,25 @@ bool DatabaseManager::ensureSchema(QSqlDatabase& database) const
     {
         return false;
     }
+    if (!query.exec(QStringLiteral(
+            "CREATE INDEX IF NOT EXISTS idx_tunnels_user ON tunnels(user_id)")))
+    {
+        return false;
+    }
+
+    // 流量记录表：用户/隧道删除后记录仍保留（名称快照），无外键
     return query.exec(QStringLiteral(
-        "CREATE INDEX IF NOT EXISTS idx_tunnels_user ON tunnels(user_id)"));
+        "CREATE TABLE IF NOT EXISTS traffic_records ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id INTEGER NOT NULL,"
+        " user_name TEXT NOT NULL,"
+        " tunnel_id INTEGER NOT NULL,"
+        " tunnel_name TEXT NOT NULL,"
+        " record_date TEXT NOT NULL,"
+        " bytes_in INTEGER NOT NULL DEFAULT 0,"
+        " bytes_out INTEGER NOT NULL DEFAULT 0,"
+        " UNIQUE(user_id, tunnel_id, record_date)"
+        ")"));
 }
 
 void DatabaseManager::setError(QString* errorMessage, const QString& text)

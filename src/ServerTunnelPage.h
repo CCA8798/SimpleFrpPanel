@@ -10,6 +10,7 @@ class FrpsManager;
 class PanelApiServer;
 class QStandardItemModel;
 class QTimer;
+class TrafficMonitor;
 
 namespace Ui {
 class ServerTunnelPage;
@@ -67,6 +68,7 @@ private:
     DatabaseManager* m_DatabaseManager = nullptr;
     FrpsManager* m_FrpsManager = nullptr;
     PanelApiServer* m_PanelApiServer = nullptr;
+    TrafficMonitor* m_TrafficMonitor = nullptr;
     QStandardItemModel* m_TunnelModel = nullptr;
     int m_CurrentUserId = -1;
     // 面板服务当前服务的数据库与端口（避免无谓重启导致客户端掉线）

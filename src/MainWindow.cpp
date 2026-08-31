@@ -5,6 +5,7 @@
 #include "HomePage.h"
 #include "ServerTunnelPage.h"
 #include "ServerUserPage.h"
+#include "TrafficPage.h"
 #include "ClientTunnelPage.h"
 
 MainWindow::MainWindow(QWidget* parent)
@@ -26,6 +27,10 @@ MainWindow::MainWindow(QWidget* parent)
     addPageNode(QStringLiteral("隧道管理"), m_ServerTunnelPage, serverKey, ElaIconType::NetworkWired);
     m_ServerUserPage = new ServerUserPage(this);
     addPageNode(QStringLiteral("用户管理"), m_ServerUserPage, serverKey, ElaIconType::Users);
+
+    // 服务端 · 流量统计
+    m_TrafficPage = new TrafficPage(this);
+    addPageNode(QStringLiteral("流量统计"), m_TrafficPage, serverKey, ElaIconType::ChartPie);
 
     // 【客户端】
     QString clientKey;

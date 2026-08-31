@@ -59,6 +59,8 @@ void FrpsManager::setFrpsPath(const QString& path)
 bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
                                  const QString& token,
                                  const QList<QPair<quint16, quint16>>& portRanges,
+                                 quint16 webServerPort, const QString& webServerUser,
+                                 const QString& webServerPassword,
                                  QString* errorMessage)
 {
     QFile file(configPath);
@@ -77,6 +79,14 @@ bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
     stream << QStringLiteral("# SimpleFrpPanel generated frps config\n");
     stream << QStringLiteral("bindPort = %1\n").arg(bindPort);
     stream << QStringLiteral("auth.token = \"%1\"\n").arg(token);
+    if (webServerPort > 0)
+    {
+        // 仪表盘：流量监控数据源（TrafficMonitor 通过该 API 采样）
+        stream << QStringLiteral("\nwebServer.addr = \"0.0.0.0\"\n");
+        stream << QStringLiteral("webServer.port = %1\n").arg(webServerPort);
+        stream << QStringLiteral("webServer.user = \"%1\"\n").arg(webServerUser);
+        stream << QStringLiteral("webServer.password = \"%1\"\n").arg(webServerPassword);
+    }
     if (!portRanges.isEmpty())
     {
         stream << QStringLiteral("\n# allowed remote port ranges of registered users\n");

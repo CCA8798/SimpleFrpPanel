@@ -28,10 +28,13 @@ public:
     QString frpsPath() const;
     void setFrpsPath(const QString& path);
 
-    // 生成 frps.toml；portRanges 为各用户界定的远端端口范围 (min, max)，写入 allowPorts 白名单
+    // 生成 frps.toml；portRanges 为各用户界定的远端端口范围 (min, max)，写入 allowPorts 白名单；
+    // webServerPort > 0 时启用仪表盘（流量监控数据源），user/password 为 Basic 认证凭据
     static bool generateConfig(const QString& configPath, quint16 bindPort,
                                const QString& token,
                                const QList<QPair<quint16, quint16>>& portRanges,
+                               quint16 webServerPort, const QString& webServerUser,
+                               const QString& webServerPassword,
                                QString* errorMessage = nullptr);
 
     // 生成 frpc.toml；tunnels 为当前用户启用的隧道（enabled == true 的条目）

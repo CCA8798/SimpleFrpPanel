@@ -7,6 +7,7 @@ class QResizeEvent;
 class HomePage;
 class ServerTunnelPage;
 class ServerUserPage;
+class TrafficPage;
 class ClientTunnelPage;
 
 // 主窗口：使用 Ela 的 ElaWindow（无边框 + 导航栏 + 自绘标题栏）。
@@ -30,6 +31,7 @@ private:
     HomePage* m_HomePage = nullptr;
     ServerTunnelPage* m_ServerTunnelPage = nullptr;
     ServerUserPage* m_ServerUserPage = nullptr;
+    TrafficPage* m_TrafficPage = nullptr;
     ClientTunnelPage* m_ClientTunnelPage = nullptr;
 };
 

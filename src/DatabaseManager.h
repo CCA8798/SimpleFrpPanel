@@ -47,6 +47,14 @@ public:
         QString createdAt;
     };
 
+    struct TrafficSummary
+    {
+        int id = 0; // 用户 id 或隧道 id
+        QString name; // 快照名（删除后仍可显示）
+        qint64 bytesIn = 0;
+        qint64 bytesOut = 0;
+    };
+
     explicit DatabaseManager(QObject* parent = nullptr);
     ~DatabaseManager() override;
 
@@ -91,6 +99,20 @@ public:
     bool deleteTunnel(int id);
     bool setTunnelEnabled(int id, bool isEnabled);
     bool tunnelNameExists(int userId, const QString& name, int excludeId = -1) const;
+
+    // ---- 流量记录（当前数据库）----
+    // 按（用户, 隧道, 日期）累加；用户/隧道删除后记录保留（名称快照）
+    bool addTraffic(int userId, const QString& userName, int tunnelId, const QString& tunnelName,
+                    const QString& recordDate, qint64 bytesIn, qint64 bytesOut);
+    // 指定日期区间（空串 = 不限）内，按隧道聚合某用户的流量（含已删除隧道）
+    QList<TrafficSummary> queryTunnelTraffic(int userId, const QString& dateFrom,
+                                             const QString& dateTo) const;
+    // 指定日期区间内，按用户聚合所有用户的流量（含已删除用户）
+    QList<TrafficSummary> queryUserTraffic(const QString& dateFrom, const QString& dateTo) const;
+    // 某用户全部历史流量的汇总（历史总流量）
+    TrafficSummary queryUserTotalTraffic(int userId) const;
+    // 某用户历史上出现过的隧道名（含已删除，用于查询下拉框）
+    QStringList queryTrafficTunnelNames(int userId) const;
 
     // ---- 工具 ----
     static QString hashPassword(const QString& password); // 加盐 SHA-256，格式 "盐:摘要"

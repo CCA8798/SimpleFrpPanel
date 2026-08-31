@@ -29,6 +29,8 @@ SimpleFrpPanel/
     ├── StatusDotDelegate.h/.cpp  # 隧道运行状况状态灯委托（绿=运行中/灰=未运行/橙=已禁用）
     ├── PanelApiServer.h/.cpp   # 面板 API 服务端（TCP + JSON 行协议，token 认证，配额强制）
     ├── PanelClient.h/.cpp      # 面板 API 客户端（登录/隧道 CRUD/启停，请求序号关联）
+    ├── TrafficMonitor.h/.cpp   # 流量监控（轮询 frps 仪表盘 API，增量写入流量记录表）
+    ├── TrafficPage.h/.cpp/.ui  # 服务端 · 流量统计（按用户/隧道/日期区间查询，含已删除）
     ├── HomePage.h/.cpp/.ui     # 首页
     ├── ServerTunnelPage.h/.cpp/.ui  # 服务端 · 隧道管理（库/用户联动 + 配额 + frps 控制 + 面板服务 + 日志）
     ├── ServerUserPage.h/.cpp/.ui    # 服务端 · 用户管理（db 文件管理 + 用户 CRUD + 公网 IP/端口设置）
@@ -61,6 +63,11 @@ SimpleFrpPanel/
 > 选择本机 `frpc.exe` 后自动生成 `frpc.toml`（服务器地址/端口/token 由登录响应下发，
 > proxies 来自启用的隧道），启动/停止/状态灯/日志一应俱全，隧道变更时自动热重启——
 > 至此 内网服务（frpc）↔ 公网服务器（frps）↔ 外网访问 全链路可真实打通。
+> **流量记录**：frps.toml 自动启用仪表盘 `webServer`（端口 7500，密码随机生成存于数据库
+> 设置）；`TrafficMonitor` 每 10 秒轮询 `GET /api/proxy/{type}/{name}`（Basic 认证），
+> 取 `todayTrafficIn/Out` 增量，按 **用户+隧道+日期** 累加写入 `traffic_records` 表
+> （用户/隧道名快照，**删除后记录仍保留**）。服务端 · 流量统计页支持按 用户/隧道
+> （含已删除）/日期区间 查询接收/发送/合计流量，"全部时间"即历史总流量，表格 5 秒自动刷新。
 > 构建依赖 Qt 的 **Sql + Network** 模块。
 
 ## 架构说明（Ela 主窗口 + ui 页面）

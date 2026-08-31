@@ -20,6 +20,7 @@
 #include "FrpsManager.h"
 #include "PanelApiServer.h"
 #include "StatusDotDelegate.h"
+#include "TrafficMonitor.h"
 #include "TunnelEditDialog.h"
 #include "ui_ServerTunnelPage.h"
 
@@ -27,6 +28,9 @@ namespace {
 const QString kSettingFrpsBindPort = QStringLiteral("frps_bind_port");
 const QString kSettingFrpsToken = QStringLiteral("frps_token");
 const QString kSettingPublicPort = QStringLiteral("public_port");
+const QString kSettingFrpsWebPort = QStringLiteral("frps_web_port");
+const QString kSettingFrpsWebUser = QStringLiteral("frps_web_user");
+const QString kSettingFrpsWebPassword = QStringLiteral("frps_web_password");
 
 QString randomHexToken(int byteCount)
 {
@@ -66,6 +70,9 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
         updatePanelServiceUi();
     });
     connect(m_PanelApiServer, &PanelApiServer::logMessage, this, &ServerTunnelPage::appendLog);
+
+    // 流量监控：从 frps 仪表盘 API 采样，写入流量记录表
+    m_TrafficMonitor = new TrafficMonitor(m_DatabaseManager, this);
 
     // 布局：顶部固定紧凑，中部自动扩展，日志区固定高度
     m_Ui->topFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
@@ -241,6 +248,7 @@ void ServerTunnelPage::onCurrentDbChanged()
     if (fileName.isEmpty())
     {
         m_DatabaseManager->closeDatabase();
+        m_TrafficMonitor->clearBaselines();
         m_CurrentUserId = -1;
         m_Ui->userComboBox->clear();
         m_Ui->frpsPathEdit->clear();
@@ -286,6 +294,9 @@ void ServerTunnelPage::onCurrentDbChanged()
     m_Ui->frpsTokenEdit->setText(token);
     m_Ui->frpsPathEdit->setText(m_FrpsManager->frpsPath());
     updateFrpsStatusUi();
+
+    // 数据库切换后重置流量采样基准
+    m_TrafficMonitor->clearBaselines();
 
     // 面板服务端口 = 用户管理页设置的公网端口（客户端登录端口）
     m_Ui->panelPortEdit->setText(m_DatabaseManager->getSetting(kSettingPublicPort));
@@ -903,9 +914,30 @@ void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)
         return;
     }
 
+    // 仪表盘（流量监控数据源）：端口/账号/密码，密码首次自动生成
+    QString webPort = m_DatabaseManager->getSetting(kSettingFrpsWebPort);
+    if (webPort.trimmed().isEmpty())
+    {
+        webPort = QStringLiteral("7500");
+        m_DatabaseManager->setSetting(kSettingFrpsWebPort, webPort);
+    }
+    QString webUser = m_DatabaseManager->getSetting(kSettingFrpsWebUser);
+    if (webUser.trimmed().isEmpty())
+    {
+        webUser = QStringLiteral("admin");
+        m_DatabaseManager->setSetting(kSettingFrpsWebUser, webUser);
+    }
+    QString webPassword = m_DatabaseManager->getSetting(kSettingFrpsWebPassword);
+    if (webPassword.trimmed().isEmpty())
+    {
+        webPassword = randomHexToken(16);
+        m_DatabaseManager->setSetting(kSettingFrpsWebPassword, webPassword);
+    }
+
     QString errorMessage;
     if (!FrpsManager::generateConfig(frpsConfigPath(), bindPort.toUShort(), token,
-                                     collectPortRanges(), &errorMessage))
+                                     collectPortRanges(), webPort.toUShort(), webUser, webPassword,
+                                     &errorMessage))
     {
         ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
                              errorMessage, 2500, this);
