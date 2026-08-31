@@ -79,6 +79,15 @@ add_executable(SimpleFrpPanel WIN32
     src/HomePage.h
     src/HomePage.cpp
     src/HomePage.ui
+    src/ServerTunnelPage.h
+    src/ServerTunnelPage.cpp
+    src/ServerTunnelPage.ui
+    src/ServerUserPage.h
+    src/ServerUserPage.cpp
+    src/ServerUserPage.ui
+    src/ClientTunnelPage.h
+    src/ClientTunnelPage.cpp
+    src/ClientTunnelPage.ui
 )
 
 # 使 uic 能解析 .ui 中"提升"的 Ela 控件头文件（ElaPushButton.h 等）
