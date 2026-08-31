@@ -384,11 +384,12 @@ void ServerUserPage::showConfirmDialog(const QString& title, const QString& cont
 
     QWidget* centralWidget = new QWidget(dialog);
     QVBoxLayout* centralLayout = new QVBoxLayout(centralWidget);
-    centralLayout->setContentsMargins(15, 25, 15, 10);
+    centralLayout->setContentsMargins(15, 14, 15, 8);
     ElaText* titleText = new ElaText(title, centralWidget);
     titleText->setTextStyle(ElaTextType::Title);
     ElaText* contentText = new ElaText(content, centralWidget);
     contentText->setTextStyle(ElaTextType::Body);
+    contentText->setTextPixelSize(13);
     contentText->setWordWrap(true);
     centralLayout->addWidget(titleText);
     centralLayout->addSpacing(2);
