@@ -34,14 +34,20 @@ SimpleFrpPanel/
 
 > 账号数据库文件存放在 **`<程序运行目录>/data`** 下（运行时生成，已加入 .gitignore），
 > 每个文件以随机 SHA256 前 10 位十六进制命名，内含 `users` 表（用户名/加盐密码摘要/
-> 备注/启用状态/到期时间/创建时间）、`tunnels` 表（每个用户的隧道：名称/协议 tcp|udp|http|https/
-> 远端端口/目标 IP/目标端口/自定义域名/启用状态/备注，删除用户时级联删除）与 `settings` 表
-> （键值设置：`public_ip`、`public_port`、`frps_bind_port`、`frps_token`）。
+> 备注/启用状态/到期时间/创建时间/**端口配额**）、`tunnels` 表（每个用户的隧道：名称/协议
+> tcp|udp|http|https/远端端口/目标 IP/目标端口/自定义域名/启用状态/备注，删除用户时级联删除）
+> 与 `settings` 表（键值设置：`public_ip`、`public_port`、`frps_bind_port`、`frps_token`）。
 > 构建依赖 Qt 的 **Sql** 模块（QSQLITE 驱动由 windeployqt 自动部署）。
 
+> **端口配额模型**：服务端为每个用户界定**远端端口范围**、**本地端口范围**与**最大可用端口数**
+> （默认 10000-60000 / 1024-65535 / 10，可在服务端隧道页按用户修改）。**具体使用哪个端口由
+> 客户端在范围内自选**；隧道新增/修改时由数据库层统一强制校验（端口越界、tcp/udp 数量超限
+> 直接拒绝，禁用中的隧道不占用配额，http/https 走域名不计入数量）。frps 的 `allowPorts`
+> 白名单按各用户的远端端口范围生成，服务端进程层面兜底。
+
 > **frps 集成**：服务端隧道页可选择本机 `frps.exe` 并启动/停止，面板自动生成
-> `data/<库名>.frps.toml`（bindPort + auth.token + 已启用隧道远端端口白名单 allowPorts），
-> 隧道增删改或行内开关后若 frps 在运行会自动热重启；运行日志实时显示在页面底部。
+> `data/<库名>.frps.toml`（bindPort + auth.token + 各用户远端端口范围白名单 allowPorts），
+> 配额或隧道变更后若 frps 在运行会自动热重启；运行日志实时显示在页面底部。
 > frps.exe 路径持久化在程序目录 `config.ini`（QSettings）。
 
 ## 架构说明（Ela 主窗口 + ui 页面）

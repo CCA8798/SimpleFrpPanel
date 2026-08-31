@@ -40,16 +40,18 @@ private slots:
     void onBrowseFrps();
     void onToggleFrps();
     void onClearLog();
+    void onSaveQuota();
 
 private:
     void refreshTunnelTable();
     void updateControlsEnabled();
+    void loadQuotaToUi();
     int selectedTunnelId() const;
     void appendLog(const QString& text);
     void updateFrpsStatusUi();
     void applyFrpsConfig(bool restartIfRunning);
     QString frpsConfigPath() const;
-    QList<quint16> collectAllowedPorts() const;
+    QList<QPair<quint16, quint16>> collectPortRanges() const;
     void showConfirmDialog(const QString& title, const QString& content,
                            const QString& confirmText, std::function<void()> onConfirm);
 

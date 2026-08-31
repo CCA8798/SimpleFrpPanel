@@ -56,7 +56,8 @@ void FrpsManager::setFrpsPath(const QString& path)
 }
 
 bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
-                                 const QString& token, const QList<quint16>& allowedPorts,
+                                 const QString& token,
+                                 const QList<QPair<quint16, quint16>>& portRanges,
                                  QString* errorMessage)
 {
     QFile file(configPath);
@@ -75,14 +76,16 @@ bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
     stream << QStringLiteral("# SimpleFrpPanel generated frps config\n");
     stream << QStringLiteral("bindPort = %1\n").arg(bindPort);
     stream << QStringLiteral("auth.token = \"%1\"\n").arg(token);
-    if (!allowedPorts.isEmpty())
+    if (!portRanges.isEmpty())
     {
-        stream << QStringLiteral("\n# allowed remote ports of registered tunnels\n");
+        stream << QStringLiteral("\n# allowed remote port ranges of registered users\n");
         stream << QStringLiteral("allowPorts = [\n");
-        for (int i = 0; i < allowedPorts.size(); ++i)
+        for (int i = 0; i < portRanges.size(); ++i)
         {
-            stream << QStringLiteral("  { start = %1, end = %1 }").arg(allowedPorts[i]);
-            stream << (i < allowedPorts.size() - 1 ? QStringLiteral(",") : QString()) << QStringLiteral("\n");
+            stream << QStringLiteral("  { start = %1, end = %2 }")
+                          .arg(portRanges[i].first)
+                          .arg(portRanges[i].second);
+            stream << (i < portRanges.size() - 1 ? QStringLiteral(",") : QString()) << QStringLiteral("\n");
         }
         stream << QStringLiteral("]\n");
     }

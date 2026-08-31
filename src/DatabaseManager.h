@@ -24,6 +24,12 @@ public:
         QString createdAt;
         QString expireAt; // "yyyy-MM-dd"，空串表示永不过期
         bool isEnabled = true;
+        // 端口配额（服务端界定范围与上限，具体端口由客户端在范围内自选）
+        int remotePortMin = 10000;
+        int remotePortMax = 60000;
+        int localPortMin = 1024;
+        int localPortMax = 65535;
+        int maxPortCount = 10; // 最多可同时使用的端口数（仅 tcp/udp 计入）
     };
 
     struct TunnelInfo
@@ -68,6 +74,12 @@ public:
     bool deleteUser(int id);
     bool userExists(const QString& username) const;
 
+    // ---- 端口配额（当前数据库）----
+    // 服务端为用户界定：远端端口范围 / 本地端口范围 / 最大可用端口数；
+    // 隧道 CRUD 时自动校验（端口必须在范围内、tcp/udp 数量不得超过上限）
+    bool setUserQuota(int userId, int remotePortMin, int remotePortMax,
+                      int localPortMin, int localPortMax, int maxPortCount);
+
     // ---- 隧道 CRUD（当前数据库）----
     QList<TunnelInfo> queryTunnels(int userId, const QString& keyword = QString()) const;
     bool addTunnel(int userId, const QString& name, const QString& protocol, int remotePort,
@@ -87,6 +99,7 @@ private:
     bool openConnection(const QString& fileName);
     void closeConnection();
     bool ensureSchema(QSqlDatabase& database) const;
+    bool loadUserQuota(int userId, UserInfo* user) const;
     static void setError(QString* errorMessage, const QString& text);
 
     QString m_CurrentFileName;

@@ -192,13 +192,16 @@ QList<DatabaseManager::UserInfo> DatabaseManager::queryUsers(const QString& keyw
     if (trimmedKeyword.isEmpty())
     {
         query.prepare(QStringLiteral(
-            "SELECT id, username, remark, is_enabled, expire_at, created_at FROM users ORDER BY id"));
+            "SELECT id, username, remark, is_enabled, expire_at, created_at,"
+            " remote_port_min, remote_port_max, local_port_min, local_port_max, max_port_count"
+            " FROM users ORDER BY id"));
     }
     else
     {
         query.prepare(QStringLiteral(
-            "SELECT id, username, remark, is_enabled, expire_at, created_at FROM users "
-            "WHERE username LIKE ? OR remark LIKE ? ORDER BY id"));
+            "SELECT id, username, remark, is_enabled, expire_at, created_at,"
+            " remote_port_min, remote_port_max, local_port_min, local_port_max, max_port_count"
+            " FROM users WHERE username LIKE ? OR remark LIKE ? ORDER BY id"));
         const QString pattern = QStringLiteral("%") + trimmedKeyword + QStringLiteral("%");
         query.addBindValue(pattern);
         query.addBindValue(pattern);
@@ -216,9 +219,57 @@ QList<DatabaseManager::UserInfo> DatabaseManager::queryUsers(const QString& keyw
         info.isEnabled = query.value(3).toInt() != 0;
         info.expireAt = query.value(4).toString();
         info.createdAt = query.value(5).toString();
+        info.remotePortMin = query.value(6).toInt();
+        info.remotePortMax = query.value(7).toInt();
+        info.localPortMin = query.value(8).toInt();
+        info.localPortMax = query.value(9).toInt();
+        info.maxPortCount = query.value(10).toInt();
         users.append(info);
     }
     return users;
+}
+
+bool DatabaseManager::setUserQuota(int userId, int remotePortMin, int remotePortMax,
+                                   int localPortMin, int localPortMax, int maxPortCount)
+{
+    if (!isOpen())
+    {
+        return false;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "UPDATE users SET remote_port_min = ?, remote_port_max = ?,"
+        " local_port_min = ?, local_port_max = ?, max_port_count = ? WHERE id = ?"));
+    query.addBindValue(remotePortMin);
+    query.addBindValue(remotePortMax);
+    query.addBindValue(localPortMin);
+    query.addBindValue(localPortMax);
+    query.addBindValue(maxPortCount);
+    query.addBindValue(userId);
+    return query.exec();
+}
+
+bool DatabaseManager::loadUserQuota(int userId, UserInfo* user) const
+{
+    if (!isOpen() || !user)
+    {
+        return false;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "SELECT remote_port_min, remote_port_max, local_port_min, local_port_max, max_port_count"
+        " FROM users WHERE id = ?"));
+    query.addBindValue(userId);
+    if (!query.exec() || !query.next())
+    {
+        return false;
+    }
+    user->remotePortMin = query.value(0).toInt();
+    user->remotePortMax = query.value(1).toInt();
+    user->localPortMin = query.value(2).toInt();
+    user->localPortMax = query.value(3).toInt();
+    user->maxPortCount = query.value(4).toInt();
+    return true;
 }
 
 bool DatabaseManager::addUser(const QString& username, const QString& password,
@@ -436,6 +487,51 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
         return false;
     }
 
+    // 端口配额校验：远端/本地端口必须在服务端界定的范围内，tcp/udp 数量不得超过上限
+    UserInfo quotaUser;
+    if (!loadUserQuota(userId, &quotaUser))
+    {
+        setError(errorMessage, QStringLiteral("用户不存在"));
+        return false;
+    }
+    if (!isHttpLike
+        && (remotePort < quotaUser.remotePortMin || remotePort > quotaUser.remotePortMax))
+    {
+        setError(errorMessage, QStringLiteral("远端端口 %1 超出该用户允许范围 %2-%3")
+                                .arg(remotePort)
+                                .arg(quotaUser.remotePortMin)
+                                .arg(quotaUser.remotePortMax));
+        return false;
+    }
+    if (localPort < quotaUser.localPortMin || localPort > quotaUser.localPortMax)
+    {
+        setError(errorMessage, QStringLiteral("本地端口 %1 超出该用户允许范围 %2-%3")
+                                .arg(localPort)
+                                .arg(quotaUser.localPortMin)
+                                .arg(quotaUser.localPortMax));
+        return false;
+    }
+    if (!isHttpLike)
+    {
+        QSqlQuery countQuery(QSqlDatabase::database(kConnectionName));
+        countQuery.prepare(QStringLiteral(
+            "SELECT COUNT(*) FROM tunnels WHERE user_id = ? AND is_enabled = 1"
+            " AND protocol IN ('tcp', 'udp')"));
+        countQuery.addBindValue(userId);
+        int usedCount = 0;
+        if (countQuery.exec() && countQuery.next())
+        {
+            usedCount = countQuery.value(0).toInt();
+        }
+        if (usedCount + 1 > quotaUser.maxPortCount)
+        {
+            setError(errorMessage, QStringLiteral("该用户端口数量已达上限 %1（当前已用 %2）")
+                                    .arg(quotaUser.maxPortCount)
+                                    .arg(usedCount));
+            return false;
+        }
+    }
+
     QSqlQuery query(QSqlDatabase::database(kConnectionName));
     query.prepare(QStringLiteral(
         "INSERT INTO tunnels (user_id, name, protocol, remote_port, local_ip, local_port,"
@@ -503,16 +599,73 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
     }
 
     // 同用户重名检查（排除自身）
+    int tunnelUserId = -1;
     {
         QSqlQuery checkQuery(QSqlDatabase::database(kConnectionName));
         checkQuery.prepare(QStringLiteral(
-            "SELECT 1 FROM tunnels WHERE user_id = (SELECT user_id FROM tunnels WHERE id = ?) AND name = ? AND id != ?"));
+            "SELECT user_id FROM tunnels WHERE id = ?"));
         checkQuery.addBindValue(id);
+        if (checkQuery.exec() && checkQuery.next())
+        {
+            tunnelUserId = checkQuery.value(0).toInt();
+        }
+    }
+    {
+        QSqlQuery checkQuery(QSqlDatabase::database(kConnectionName));
+        checkQuery.prepare(QStringLiteral(
+            "SELECT 1 FROM tunnels WHERE user_id = ? AND name = ? AND id != ?"));
+        checkQuery.addBindValue(tunnelUserId);
         checkQuery.addBindValue(tunnelName);
         checkQuery.addBindValue(id);
         if (checkQuery.exec() && checkQuery.next())
         {
             setError(errorMessage, QStringLiteral("该用户下已存在同名隧道"));
+            return false;
+        }
+    }
+
+    // 端口配额校验：远端/本地端口必须在服务端界定的范围内，tcp/udp 数量不得超过上限
+    UserInfo quotaUser;
+    if (!loadUserQuota(tunnelUserId, &quotaUser))
+    {
+        setError(errorMessage, QStringLiteral("用户不存在"));
+        return false;
+    }
+    if (!isHttpLike
+        && (remotePort < quotaUser.remotePortMin || remotePort > quotaUser.remotePortMax))
+    {
+        setError(errorMessage, QStringLiteral("远端端口 %1 超出该用户允许范围 %2-%3")
+                                .arg(remotePort)
+                                .arg(quotaUser.remotePortMin)
+                                .arg(quotaUser.remotePortMax));
+        return false;
+    }
+    if (localPort < quotaUser.localPortMin || localPort > quotaUser.localPortMax)
+    {
+        setError(errorMessage, QStringLiteral("本地端口 %1 超出该用户允许范围 %2-%3")
+                                .arg(localPort)
+                                .arg(quotaUser.localPortMin)
+                                .arg(quotaUser.localPortMax));
+        return false;
+    }
+    if (!isHttpLike)
+    {
+        QSqlQuery countQuery(QSqlDatabase::database(kConnectionName));
+        countQuery.prepare(QStringLiteral(
+            "SELECT COUNT(*) FROM tunnels WHERE user_id = ? AND is_enabled = 1"
+            " AND protocol IN ('tcp', 'udp') AND id != ?"));
+        countQuery.addBindValue(tunnelUserId);
+        countQuery.addBindValue(id);
+        int usedCount = 0;
+        if (countQuery.exec() && countQuery.next())
+        {
+            usedCount = countQuery.value(0).toInt();
+        }
+        if (usedCount + 1 > quotaUser.maxPortCount)
+        {
+            setError(errorMessage, QStringLiteral("该用户端口数量已达上限 %1（当前已用 %2）")
+                                    .arg(quotaUser.maxPortCount)
+                                    .arg(usedCount));
             return false;
         }
     }
@@ -633,7 +786,12 @@ bool DatabaseManager::ensureSchema(QSqlDatabase& database) const
             " remark TEXT NOT NULL DEFAULT '',"
             " is_enabled INTEGER NOT NULL DEFAULT 1,"
             " expire_at TEXT NOT NULL DEFAULT '',"
-            " created_at TEXT NOT NULL"
+            " created_at TEXT NOT NULL,"
+            " remote_port_min INTEGER NOT NULL DEFAULT 10000,"
+            " remote_port_max INTEGER NOT NULL DEFAULT 60000,"
+            " local_port_min INTEGER NOT NULL DEFAULT 1024,"
+            " local_port_max INTEGER NOT NULL DEFAULT 65535,"
+            " max_port_count INTEGER NOT NULL DEFAULT 10"
             ")")))
     {
         return false;
@@ -647,27 +805,39 @@ bool DatabaseManager::ensureSchema(QSqlDatabase& database) const
         return false;
     }
 
-    // 旧库迁移：早期版本 users 表没有 expire_at 列，自动补充
+    // 旧库迁移：早期版本 users 表缺少列时自动补充
+    struct ColumnSpec
+    {
+        const char* name;
+        const char* ddl;
+    };
+    static const ColumnSpec kMissingColumns[] = {
+        {"expire_at", "expire_at TEXT NOT NULL DEFAULT ''"},
+        {"remote_port_min", "remote_port_min INTEGER NOT NULL DEFAULT 10000"},
+        {"remote_port_max", "remote_port_max INTEGER NOT NULL DEFAULT 60000"},
+        {"local_port_min", "local_port_min INTEGER NOT NULL DEFAULT 1024"},
+        {"local_port_max", "local_port_max INTEGER NOT NULL DEFAULT 65535"},
+        {"max_port_count", "max_port_count INTEGER NOT NULL DEFAULT 10"},
+    };
+
+    QStringList existingColumns;
     QSqlQuery pragmaQuery(database);
-    bool hasExpireAt = false;
     if (pragmaQuery.exec(QStringLiteral("PRAGMA table_info(users)")))
     {
         while (pragmaQuery.next())
         {
-            if (pragmaQuery.value(1).toString() == QStringLiteral("expire_at"))
-            {
-                hasExpireAt = true;
-                break;
-            }
+            existingColumns.append(pragmaQuery.value(1).toString());
         }
     }
-    if (!hasExpireAt)
+    for (const ColumnSpec& column : kMissingColumns)
     {
-        QSqlQuery alterQuery(database);
-        if (!alterQuery.exec(QStringLiteral(
-                "ALTER TABLE users ADD COLUMN expire_at TEXT NOT NULL DEFAULT ''")))
+        if (!existingColumns.contains(QLatin1String(column.name)))
         {
-            return false;
+            QSqlQuery alterQuery(database);
+            if (!alterQuery.exec(QStringLiteral("ALTER TABLE users ADD COLUMN ") + QLatin1String(column.ddl)))
+            {
+                return false;
+            }
         }
     }
 

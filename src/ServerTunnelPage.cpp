@@ -65,6 +65,8 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
         m_Ui->dbComboBox, m_Ui->userComboBox, m_Ui->refreshButton,
         m_Ui->frpsPathEdit, m_Ui->browseButton, m_Ui->frpsPortEdit,
         m_Ui->frpsTokenEdit, m_Ui->startButton,
+        m_Ui->remoteMinEdit, m_Ui->remoteMaxEdit, m_Ui->localMinEdit,
+        m_Ui->localMaxEdit, m_Ui->maxPortCountEdit, m_Ui->saveQuotaButton,
     };
     for (QWidget* widget : topWidgets)
     {
@@ -78,6 +80,11 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
 
     // 端口输入校验
     m_Ui->frpsPortEdit->setValidator(new QIntValidator(1, 65535, this));
+    m_Ui->remoteMinEdit->setValidator(new QIntValidator(1, 65535, this));
+    m_Ui->remoteMaxEdit->setValidator(new QIntValidator(1, 65535, this));
+    m_Ui->localMinEdit->setValidator(new QIntValidator(1, 65535, this));
+    m_Ui->localMaxEdit->setValidator(new QIntValidator(1, 65535, this));
+    m_Ui->maxPortCountEdit->setValidator(new QIntValidator(1, 65535, this));
 
     // 隧道表模型：开关 / 名称 / 协议 / 远端端口 / 目标 / 运行状况 / 备注
     m_TunnelModel->setHorizontalHeaderLabels(
@@ -115,6 +122,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     connect(m_Ui->browseButton, &QPushButton::clicked, this, &ServerTunnelPage::onBrowseFrps);
     connect(m_Ui->startButton, &QPushButton::clicked, this, &ServerTunnelPage::onToggleFrps);
     connect(m_Ui->clearLogButton, &QPushButton::clicked, this, &ServerTunnelPage::onClearLog);
+    connect(m_Ui->saveQuotaButton, &QPushButton::clicked, this, &ServerTunnelPage::onSaveQuota);
 
     connect(m_FrpsManager, &FrpsManager::runningChanged, this, [this](bool) {
         updateFrpsStatusUi();
@@ -161,6 +169,11 @@ void ServerTunnelPage::onCurrentDbChanged()
         m_Ui->frpsPortEdit->clear();
         m_Ui->frpsTokenEdit->clear();
         m_Ui->frpsStatusLabel->setText(QStringLiteral("未运行"));
+        m_Ui->remoteMinEdit->clear();
+        m_Ui->remoteMaxEdit->clear();
+        m_Ui->localMinEdit->clear();
+        m_Ui->localMaxEdit->clear();
+        m_Ui->maxPortCountEdit->clear();
         refreshTunnelTable();
         updateControlsEnabled();
         return;
@@ -228,6 +241,7 @@ void ServerTunnelPage::onCurrentUserChanged()
     m_CurrentUserId = (m_Ui->userComboBox->currentIndex() >= 0)
                           ? m_Ui->userComboBox->currentData().toInt()
                           : -1;
+    loadQuotaToUi();
     refreshTunnelTable();
     updateControlsEnabled();
 }
@@ -440,6 +454,56 @@ void ServerTunnelPage::onClearLog()
     m_Ui->logTextEdit->clear();
 }
 
+void ServerTunnelPage::onSaveQuota()
+{
+    if (m_CurrentUserId <= 0)
+    {
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("请先选择用户"), 2000, this);
+        return;
+    }
+    const int remoteMin = m_Ui->remoteMinEdit->text().trimmed().toInt();
+    const int remoteMax = m_Ui->remoteMaxEdit->text().trimmed().toInt();
+    const int localMin = m_Ui->localMinEdit->text().trimmed().toInt();
+    const int localMax = m_Ui->localMaxEdit->text().trimmed().toInt();
+    const int maxCount = m_Ui->maxPortCountEdit->text().trimmed().toInt();
+    if (remoteMin < 1 || remoteMax > 65535 || remoteMin > remoteMax)
+    {
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("远端端口范围无效（1-65535 且最小值不大于最大值）"), 2500, this);
+        return;
+    }
+    if (localMin < 1 || localMax > 65535 || localMin > localMax)
+    {
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("本地端口范围无效（1-65535 且最小值不大于最大值）"), 2500, this);
+        return;
+    }
+    if (maxCount < 1 || maxCount > 65535)
+    {
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("最大端口数必须是 1-65535 的整数"), 2500, this);
+        return;
+    }
+
+    if (!m_DatabaseManager->setUserQuota(m_CurrentUserId, remoteMin, remoteMax,
+                                         localMin, localMax, maxCount))
+    {
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             QStringLiteral("保存配额失败"), 2000, this);
+        return;
+    }
+    applyFrpsConfig(true);
+    ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                           QStringLiteral("端口配额已保存（远端 %1-%2，本地 %3-%4，最多 %5 个端口）")
+                               .arg(remoteMin)
+                               .arg(remoteMax)
+                               .arg(localMin)
+                               .arg(localMax)
+                               .arg(maxCount),
+                           3000, this);
+}
+
 void ServerTunnelPage::refreshTunnelTable()
 {
     // 清理旧的开关控件（setIndexWidget 会删除原控件）
@@ -539,11 +603,48 @@ void ServerTunnelPage::updateControlsEnabled()
     m_Ui->frpsTokenEdit->setEnabled(hasDatabase);
     m_Ui->startButton->setEnabled(hasDatabase);
     const bool hasUser = m_CurrentUserId > 0;
+    m_Ui->remoteMinEdit->setEnabled(hasUser);
+    m_Ui->remoteMaxEdit->setEnabled(hasUser);
+    m_Ui->localMinEdit->setEnabled(hasUser);
+    m_Ui->localMaxEdit->setEnabled(hasUser);
+    m_Ui->maxPortCountEdit->setEnabled(hasUser);
+    m_Ui->saveQuotaButton->setEnabled(hasUser);
     m_Ui->searchLineEdit->setEnabled(hasUser);
     m_Ui->searchButton->setEnabled(hasUser);
     m_Ui->addTunnelButton->setEnabled(hasUser);
     m_Ui->editTunnelButton->setEnabled(hasUser);
     m_Ui->deleteTunnelButton->setEnabled(hasUser);
+}
+
+void ServerTunnelPage::loadQuotaToUi()
+{
+    if (m_CurrentUserId <= 0)
+    {
+        m_Ui->remoteMinEdit->clear();
+        m_Ui->remoteMaxEdit->clear();
+        m_Ui->localMinEdit->clear();
+        m_Ui->localMaxEdit->clear();
+        m_Ui->maxPortCountEdit->clear();
+        return;
+    }
+    const QList<DatabaseManager::UserInfo> users = m_DatabaseManager->queryUsers();
+    for (const DatabaseManager::UserInfo& user : users)
+    {
+        if (user.id == m_CurrentUserId)
+        {
+            m_Ui->remoteMinEdit->setText(QString::number(user.remotePortMin));
+            m_Ui->remoteMaxEdit->setText(QString::number(user.remotePortMax));
+            m_Ui->localMinEdit->setText(QString::number(user.localPortMin));
+            m_Ui->localMaxEdit->setText(QString::number(user.localPortMax));
+            m_Ui->maxPortCountEdit->setText(QString::number(user.maxPortCount));
+            return;
+        }
+    }
+    m_Ui->remoteMinEdit->clear();
+    m_Ui->remoteMaxEdit->clear();
+    m_Ui->localMinEdit->clear();
+    m_Ui->localMaxEdit->clear();
+    m_Ui->maxPortCountEdit->clear();
 }
 
 int ServerTunnelPage::selectedTunnelId() const
@@ -587,7 +688,7 @@ void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)
 
     QString errorMessage;
     if (!FrpsManager::generateConfig(frpsConfigPath(), bindPort.toUShort(), token,
-                                     collectAllowedPorts(), &errorMessage))
+                                     collectPortRanges(), &errorMessage))
     {
         ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
                              errorMessage, 2500, this);
@@ -625,23 +726,22 @@ QString ServerTunnelPage::frpsConfigPath() const
     return DatabaseManager::dataDirectory() + QLatin1Char('/') + fileName + QStringLiteral(".frps.toml");
 }
 
-QList<quint16> ServerTunnelPage::collectAllowedPorts() const
+QList<QPair<quint16, quint16>> ServerTunnelPage::collectPortRanges() const
 {
-    QList<quint16> ports;
+    // 汇总所有用户的远端端口范围（服务端界定的配额），写入 frps allowPorts 白名单
+    QList<QPair<quint16, quint16>> ranges;
     const QList<DatabaseManager::UserInfo> users = m_DatabaseManager->queryUsers();
     for (const DatabaseManager::UserInfo& user : users)
     {
-        const QList<DatabaseManager::TunnelInfo> tunnels = m_DatabaseManager->queryTunnels(user.id);
-        for (const DatabaseManager::TunnelInfo& tunnel : tunnels)
+        const QPair<quint16, quint16> range(static_cast<quint16>(user.remotePortMin),
+                                            static_cast<quint16>(user.remotePortMax));
+        if (range.first <= range.second && !ranges.contains(range))
         {
-            if (tunnel.isEnabled && tunnel.remotePort > 0 && !ports.contains(tunnel.remotePort))
-            {
-                ports.append(tunnel.remotePort);
-            }
+            ranges.append(range);
         }
     }
-    std::sort(ports.begin(), ports.end());
-    return ports;
+    std::sort(ranges.begin(), ranges.end());
+    return ranges;
 }
 
 void ServerTunnelPage::showConfirmDialog(const QString& title, const QString& content,
