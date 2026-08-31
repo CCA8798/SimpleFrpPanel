@@ -1,6 +1,8 @@
 #ifndef FRPSMANAGER_H
 #define FRPSMANAGER_H
 
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QList>
 #include <QObject>
 #include <QPair>
@@ -8,16 +10,18 @@
 
 class QProcess;
 
-// frps 服务端进程管理：
-// - 生成 frps.toml 配置（bindPort / auth.token / allowPorts 端口范围白名单）
-// - 启动 / 停止 frps 进程，实时转发进程输出到日志信号
-// - frps.exe 路径持久化在程序目录 config.ini
+// frp 进程管理（frps / frpc 通用）：
+// - frps：生成 frps.toml（bindPort / auth.token / allowPorts 端口范围白名单）
+// - frpc：生成 frpc.toml（serverAddr / serverPort / auth.token / proxies，由客户端隧道生成）
+// - 启动 / 停止进程，实时转发进程输出到日志信号
+// - 程序路径持久化在程序目录 config.ini（settingsKey 区分 frps 与 frpc）
 class FrpsManager : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit FrpsManager(QObject* parent = nullptr);
+    explicit FrpsManager(const QString& settingsKey = QStringLiteral("frps/path"),
+                         QObject* parent = nullptr);
     ~FrpsManager() override;
 
     bool isRunning() const;
@@ -29,6 +33,11 @@ public:
                                const QString& token,
                                const QList<QPair<quint16, quint16>>& portRanges,
                                QString* errorMessage = nullptr);
+
+    // 生成 frpc.toml；tunnels 为当前用户启用的隧道（enabled == true 的条目）
+    static bool generateFrpcConfig(const QString& configPath, const QString& serverAddr,
+                                   quint16 serverPort, const QString& token,
+                                   const QJsonArray& tunnels, QString* errorMessage = nullptr);
 
     bool start(const QString& configPath, QString* errorMessage = nullptr);
     void stop();
@@ -42,6 +51,7 @@ private:
 
     QProcess* m_Process = nullptr;
     QString m_FrpsPath;
+    QString m_SettingsKey;
 };
 
 #endif // FRPSMANAGER_H

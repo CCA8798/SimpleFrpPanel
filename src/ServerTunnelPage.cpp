@@ -54,7 +54,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     : QWidget(parent)
     , m_Ui(new Ui::ServerTunnelPage())
     , m_DatabaseManager(new DatabaseManager(this))
-    , m_FrpsManager(new FrpsManager(this))
+    , m_FrpsManager(new FrpsManager(QStringLiteral("frps/path"), this))
     , m_TunnelModel(new QStandardItemModel(this))
 {
     m_Ui->setupUi(this);
@@ -476,6 +476,8 @@ void ServerTunnelPage::onTogglePanelService()
     if (m_PanelApiServer->isRunning())
     {
         m_PanelApiServer->stop();
+        m_PanelServiceDbName.clear();
+        m_PanelServicePort = 0;
         appendLog(QStringLiteral("[%1] 面板服务已停止")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
         return;
@@ -501,6 +503,8 @@ void ServerTunnelPage::onTogglePanelService()
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
         return;
     }
+    m_PanelServiceDbName = m_Ui->dbComboBox->currentText();
+    m_PanelServicePort = portValue;
     appendLog(QStringLiteral("[%1] 面板服务已启动，监听端口 %2（客户端在此端口登录）")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
                   .arg(portValue));
@@ -517,29 +521,40 @@ void ServerTunnelPage::updatePanelServiceUi()
 
 void ServerTunnelPage::syncPanelServiceWithDb()
 {
-    // 切换数据库时：若面板服务在运行，则用新库的公网端口重启
     if (!m_PanelApiServer->isRunning())
     {
         return;
     }
+    const QString dbName = m_Ui->dbComboBox->currentText();
     const QString portText = m_Ui->panelPortEdit->text().trimmed();
     bool portOk = false;
     const int portValue = portText.toInt(&portOk);
     if (!portOk || portValue < 1 || portValue > 65535)
     {
         m_PanelApiServer->stop();
+        m_PanelServiceDbName.clear();
+        m_PanelServicePort = 0;
         appendLog(QStringLiteral("[%1] 面板服务已停止（新数据库未设置公网端口）")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+        return;
+    }
+    // 数据库与端口都没变（如页面刷新、切换页签）时绝不重启，避免在线客户端掉线
+    if (m_PanelServiceDbName == dbName && m_PanelServicePort == portValue)
+    {
         return;
     }
     m_PanelApiServer->stop();
     QString errorMessage;
     if (!m_PanelApiServer->start(static_cast<quint16>(portValue), &errorMessage))
     {
+        m_PanelServiceDbName.clear();
+        m_PanelServicePort = 0;
         appendLog(QStringLiteral("[%1] 面板服务重启失败: %2")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
         return;
     }
+    m_PanelServiceDbName = dbName;
+    m_PanelServicePort = portValue;
     appendLog(QStringLiteral("[%1] 面板服务已切换到新数据库端口 %2")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
                   .arg(portValue));

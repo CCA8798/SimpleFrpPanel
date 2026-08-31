@@ -238,6 +238,9 @@ void PanelApiServer::handleRequest(QTcpSocket* socket, const QJsonObject& reques
         const QJsonObject serverInfo{
             {QStringLiteral("publicIp"), m_DatabaseManager->getSetting(kSettingPublicIp)},
             {QStringLiteral("publicPort"), m_DatabaseManager->getSetting(kSettingPublicPort)},
+            // frpc 连接参数：frps 绑定端口与认证 token（仅登录成功后下发）
+            {QStringLiteral("frpsBindPort"), m_DatabaseManager->getSetting(QStringLiteral("frps_bind_port"), QStringLiteral("7000"))},
+            {QStringLiteral("frpsToken"), m_DatabaseManager->getSetting(QStringLiteral("frps_token"))},
         };
         sendResponse(socket, QJsonObject{
                                 {QStringLiteral("cmd"), QStringLiteral("login")},

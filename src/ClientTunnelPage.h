@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QWidget>
 
+class FrpsManager;
 class PanelClient;
 class QStandardItemModel;
 
@@ -33,16 +34,21 @@ private slots:
     void onEditTunnel();
     void onDeleteTunnel();
     void onClearLog();
+    void onBrowseFrpc();
+    void onToggleFrpc();
 
 private:
     void updateLoginUi();
     void updateQuotaLabel();
+    void updateFrpcStatusUi();
+    void rebuildFrpcConfigIfRunning();
     void refreshTunnelTable();
     void appendLog(const QString& text);
     int selectedTunnelId() const;
 
     Ui::ClientTunnelPage* m_Ui = nullptr;
     PanelClient* m_Client = nullptr;
+    FrpsManager* m_FrpcManager = nullptr;
     QStandardItemModel* m_TunnelModel = nullptr;
     QJsonArray m_Tunnels;
     QJsonObject m_Quota;

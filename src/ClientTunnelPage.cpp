@@ -1,6 +1,7 @@
 #include "ClientTunnelPage.h"
 
 #include <QCoreApplication>
+#include <QFileDialog>
 #include <QHeaderView>
 #include <QIntValidator>
 #include <QSettings>
@@ -13,6 +14,7 @@
 #include "ElaPushButton.h"
 #include "ElaText.h"
 #include "ElaToggleSwitch.h"
+#include "FrpsManager.h"
 #include "PanelClient.h"
 #include "StatusDotDelegate.h"
 #include "TunnelEditDialog.h"
@@ -36,6 +38,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     : QWidget(parent)
     , m_Ui(new Ui::ClientTunnelPage())
     , m_Client(new PanelClient(this))
+    , m_FrpcManager(new FrpsManager(QStringLiteral("client/frpcPath"), this))
     , m_TunnelModel(new QStandardItemModel(this))
 {
     m_Ui->setupUi(this);
@@ -47,6 +50,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     const QList<QWidget*> topWidgets = {
         m_Ui->serverIpEdit, m_Ui->serverPortEdit, m_Ui->usernameEdit,
         m_Ui->passwordEdit, m_Ui->loginButton, m_Ui->logoutButton,
+        m_Ui->frpcPathEdit, m_Ui->browseFrpcButton, m_Ui->frpcStartButton,
     };
     for (QWidget* widget : topWidgets)
     {
@@ -55,6 +59,8 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     m_Ui->connStatusLabel->setTextPixelSize(12);
     m_Ui->quotaLabel->setTextPixelSize(12);
     m_Ui->logTitleLabel->setTextPixelSize(12);
+    m_Ui->frpcStatusLabel->setTextPixelSize(12);
+    m_Ui->frpcPathEdit->setText(m_FrpcManager->frpsPath());
 
     m_Ui->serverPortEdit->setValidator(new QIntValidator(1, 65535, this));
     m_Ui->logTextEdit->setMaximumBlockCount(2000);
@@ -87,6 +93,14 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     connect(m_Ui->editTunnelButton, &QPushButton::clicked, this, &ClientTunnelPage::onEditTunnel);
     connect(m_Ui->deleteTunnelButton, &QPushButton::clicked, this, &ClientTunnelPage::onDeleteTunnel);
     connect(m_Ui->clearLogButton, &QPushButton::clicked, this, &ClientTunnelPage::onClearLog);
+    connect(m_Ui->browseFrpcButton, &QPushButton::clicked, this, &ClientTunnelPage::onBrowseFrpc);
+    connect(m_Ui->frpcStartButton, &QPushButton::clicked, this, &ClientTunnelPage::onToggleFrpc);
+
+    // frpc 进程状态与日志
+    connect(m_FrpcManager, &FrpsManager::runningChanged, this, [this](bool) {
+        updateFrpcStatusUi();
+    });
+    connect(m_FrpcManager, &FrpsManager::logMessage, this, &ClientTunnelPage::appendLog);
 
     // 客户端状态
     connect(m_Client, &PanelClient::connectionStateChanged, this, [this](bool connected) {
@@ -120,6 +134,12 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         m_Quota = QJsonObject();
         m_ServerInfo = QJsonObject();
         m_FrpsRunning = false;
+        if (m_FrpcManager->isRunning())
+        {
+            m_FrpcManager->stop();
+            appendLog(QStringLiteral("[%1] frpc 已停止（退出登录）")
+                          .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+        }
         refreshTunnelTable();
         updateQuotaLabel();
         updateLoginUi();
@@ -132,6 +152,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         m_FrpsRunning = frpsRunning;
         refreshTunnelTable();
         updateQuotaLabel();
+        rebuildFrpcConfigIfRunning();
     });
     connect(m_Client, &PanelClient::commandSucceeded, this, [this](const QString& cmd) {
         if (cmd == QStringLiteral("add_tunnel"))
@@ -345,6 +366,110 @@ void ClientTunnelPage::onClearLog()
     m_Ui->logTextEdit->clear();
 }
 
+void ClientTunnelPage::onBrowseFrpc()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, QStringLiteral("选择 frpc.exe"), QString(),
+        QStringLiteral("frpc (*.exe);;所有文件 (*)"));
+    if (path.isEmpty())
+    {
+        return;
+    }
+    m_FrpcManager->setFrpsPath(path);
+    m_Ui->frpcPathEdit->setText(path);
+}
+
+void ClientTunnelPage::onToggleFrpc()
+{
+    if (m_FrpcManager->isRunning())
+    {
+        m_FrpcManager->stop();
+        appendLog(QStringLiteral("[%1] frpc 已停止")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+        return;
+    }
+    if (!m_Client->isLoggedIn())
+    {
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("请先登录"), 2000, this);
+        return;
+    }
+
+    // 生成 frpc.toml：服务器地址用当前连接地址，端口/token 由登录响应下发
+    const QString serverAddr = m_Ui->serverIpEdit->text().trimmed();
+    const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toInt(7000);
+    const QString token = m_ServerInfo.value(QStringLiteral("frpsToken")).toString();
+    if (serverAddr.isEmpty() || token.isEmpty())
+    {
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             QStringLiteral("缺少 frpc 连接参数，请重新登录"), 2500, this);
+        return;
+    }
+
+    const QString configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/frpc.toml");
+    QString errorMessage;
+    if (!FrpsManager::generateFrpcConfig(configPath, serverAddr,
+                                         static_cast<quint16>(serverPort), token,
+                                         m_Tunnels, &errorMessage))
+    {
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             errorMessage, 3000, this);
+        return;
+    }
+    if (!m_FrpcManager->start(configPath, &errorMessage))
+    {
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             errorMessage, 3000, this);
+        appendLog(QStringLiteral("[%1] frpc 启动失败: %2")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
+        return;
+    }
+    appendLog(QStringLiteral("[%1] frpc 已启动 (配置: %2，服务器 %3:%4)")
+                  .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
+                       configPath, serverAddr)
+                  .arg(serverPort));
+}
+
+void ClientTunnelPage::updateFrpcStatusUi()
+{
+    const bool running = m_FrpcManager->isRunning();
+    m_Ui->frpcStartButton->setText(running ? QStringLiteral("停止") : QStringLiteral("启动"));
+    m_Ui->frpcStatusLabel->setText(running ? QStringLiteral("运行中") : QStringLiteral("未运行"));
+    m_Ui->frpcStatusLight->setColor(running ? QColor(0x4C, 0xAF, 0x50)
+                                            : QColor(0x9E, 0x9E, 0x9E));
+}
+
+void ClientTunnelPage::rebuildFrpcConfigIfRunning()
+{
+    // 隧道增删改/开关后，若 frpc 在运行则重新生成配置并热重启
+    if (!m_FrpcManager->isRunning() || !m_Client->isLoggedIn())
+    {
+        return;
+    }
+    const QString serverAddr = m_Ui->serverIpEdit->text().trimmed();
+    const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toInt(7000);
+    const QString token = m_ServerInfo.value(QStringLiteral("frpsToken")).toString();
+    const QString configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/frpc.toml");
+    QString errorMessage;
+    if (!FrpsManager::generateFrpcConfig(configPath, serverAddr,
+                                         static_cast<quint16>(serverPort), token,
+                                         m_Tunnels, &errorMessage))
+    {
+        appendLog(QStringLiteral("[%1] frpc 配置重新生成失败: %2")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
+        return;
+    }
+    m_FrpcManager->stop();
+    if (!m_FrpcManager->start(configPath, &errorMessage))
+    {
+        appendLog(QStringLiteral("[%1] frpc 重启失败: %2")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
+        return;
+    }
+    appendLog(QStringLiteral("[%1] frpc 配置已更新并重启")
+                  .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+}
+
 void ClientTunnelPage::updateLoginUi()
 {
     const bool loggedIn = m_Client->isLoggedIn();
@@ -359,6 +484,7 @@ void ClientTunnelPage::updateLoginUi()
     m_Ui->addTunnelButton->setEnabled(loggedIn);
     m_Ui->editTunnelButton->setEnabled(loggedIn);
     m_Ui->deleteTunnelButton->setEnabled(loggedIn);
+    m_Ui->frpcStartButton->setEnabled(loggedIn);
     m_Ui->connStatusLabel->setText(connected ? QStringLiteral("已连接") : QStringLiteral("未连接"));
 }
 

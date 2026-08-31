@@ -158,6 +158,74 @@
         </property>
        </widget>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="frpcRow">
+        <item>
+         <widget class="QLabel" name="frpcLabel">
+          <property name="text">
+           <string>frpc 程序</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaLineEdit" name="frpcPathEdit">
+          <property name="minimumSize">
+           <size>
+            <width>280</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+          <property name="placeholderText">
+           <string>选择 frpc.exe（本机内网穿透客户端）</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="browseFrpcButton">
+          <property name="text">
+           <string>浏览…</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="frpcStartButton">
+          <property name="text">
+           <string>启动</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="StatusLight" name="frpcStatusLight">
+          <property name="toolTip">
+           <string>frpc 运行状态</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaText" name="frpcStatusLabel">
+          <property name="text">
+           <string>未运行</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="frpcSpacer">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>
@@ -325,6 +393,11 @@
    <class>ElaText</class>
    <extends>QLabel</extends>
    <header>ElaText.h</header>
+  </customwidget>
+  <customwidget>
+   <class>StatusLight</class>
+   <extends>QWidget</extends>
+   <header>StatusLight.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

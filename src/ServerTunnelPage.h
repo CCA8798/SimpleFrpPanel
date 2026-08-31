@@ -66,6 +66,9 @@ private:
     PanelApiServer* m_PanelApiServer = nullptr;
     QStandardItemModel* m_TunnelModel = nullptr;
     int m_CurrentUserId = -1;
+    // 面板服务当前服务的数据库与端口（避免无谓重启导致客户端掉线）
+    QString m_PanelServiceDbName;
+    int m_PanelServicePort = 0;
 };
 
 #endif // SERVERTUNNELPAGE_H

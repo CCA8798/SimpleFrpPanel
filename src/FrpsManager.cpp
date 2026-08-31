@@ -17,8 +17,9 @@ QString appSettingsPath()
 }
 } // namespace
 
-FrpsManager::FrpsManager(QObject* parent)
+FrpsManager::FrpsManager(const QString& settingsKey, QObject* parent)
     : QObject(parent)
+    , m_SettingsKey(settingsKey.isEmpty() ? kSettingsPathKey : settingsKey)
 {
     m_Process = new QProcess(this);
     m_Process->setProcessChannelMode(QProcess::MergedChannels);
@@ -30,7 +31,7 @@ FrpsManager::FrpsManager(QObject* parent)
             });
 
     QSettings settings(appSettingsPath(), QSettings::IniFormat);
-    m_FrpsPath = settings.value(kSettingsPathKey).toString();
+    m_FrpsPath = settings.value(m_SettingsKey).toString();
 }
 
 FrpsManager::~FrpsManager()
@@ -52,7 +53,7 @@ void FrpsManager::setFrpsPath(const QString& path)
 {
     m_FrpsPath = path;
     QSettings settings(appSettingsPath(), QSettings::IniFormat);
-    settings.setValue(kSettingsPathKey, path);
+    settings.setValue(m_SettingsKey, path);
 }
 
 bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
@@ -92,6 +93,66 @@ bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
     stream.flush();
     file.close();
     return true;
+}
+
+bool FrpsManager::generateFrpcConfig(const QString& configPath, const QString& serverAddr,
+                                     quint16 serverPort, const QString& token,
+                                     const QJsonArray& tunnels, QString* errorMessage)
+{
+    QFile file(configPath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        if (errorMessage)
+        {
+            *errorMessage = QStringLiteral("无法写入配置文件: %1").arg(configPath);
+        }
+        return false;
+    }
+    QTextStream stream(&file);
+    stream.setCodec("UTF-8");
+    stream << QStringLiteral("# SimpleFrpPanel generated frpc config\n");
+    stream << QStringLiteral("serverAddr = \"%1\"\n").arg(serverAddr);
+    stream << QStringLiteral("serverPort = %1\n").arg(serverPort);
+    stream << QStringLiteral("auth.token = \"%1\"\n").arg(token);
+
+    int proxyCount = 0;
+    for (const QJsonValue& value : tunnels)
+    {
+        const QJsonObject tunnel = value.toObject();
+        if (!tunnel.value(QStringLiteral("enabled")).toBool())
+        {
+            continue;
+        }
+        const QString protocol = tunnel.value(QStringLiteral("protocol")).toString();
+        if (protocol != QStringLiteral("tcp") && protocol != QStringLiteral("udp")
+            && protocol != QStringLiteral("http") && protocol != QStringLiteral("https"))
+        {
+            continue;
+        }
+        stream << QStringLiteral("\n[[proxies]]\n");
+        stream << QStringLiteral("name = \"%1\"\n").arg(tunnel.value(QStringLiteral("name")).toString());
+        stream << QStringLiteral("type = \"%1\"\n").arg(protocol);
+        stream << QStringLiteral("localIP = \"%1\"\n").arg(tunnel.value(QStringLiteral("localIp")).toString());
+        stream << QStringLiteral("localPort = %1\n").arg(tunnel.value(QStringLiteral("localPort")).toInt());
+        if (protocol == QStringLiteral("tcp") || protocol == QStringLiteral("udp"))
+        {
+            stream << QStringLiteral("remotePort = %1\n").arg(tunnel.value(QStringLiteral("remotePort")).toInt());
+        }
+        else
+        {
+            stream << QStringLiteral("customDomains = [\"%1\"]\n")
+                          .arg(tunnel.value(QStringLiteral("customDomain")).toString());
+        }
+        ++proxyCount;
+    }
+
+    stream.flush();
+    file.close();
+    if (proxyCount == 0 && errorMessage)
+    {
+        *errorMessage = QStringLiteral("没有启用的隧道，无法生成 frpc 配置");
+    }
+    return proxyCount > 0;
 }
 
 bool FrpsManager::start(const QString& configPath, QString* errorMessage)
