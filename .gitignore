@@ -21,6 +21,9 @@ ui_*.h
 qrc_*.cpp
 .qmake.stash
 
+# 运行期生成的账号数据库文件（data 目录）
+data/
+
 # IDE
 .vs/
 .vscode/

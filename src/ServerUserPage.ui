@@ -14,6 +14,9 @@
    <string>用户管理</string>
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
+   <property name="spacing">
+    <number>12</number>
+   </property>
    <property name="leftMargin">
     <number>16</number>
    </property>
@@ -26,8 +29,278 @@
    <property name="bottomMargin">
     <number>16</number>
    </property>
+   <item>
+    <widget class="QFrame" name="dbFrame">
+     <property name="minimumHeight">
+      <number>150</number>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <layout class="QVBoxLayout" name="dbFrameLayout">
+      <property name="spacing">
+       <number>10</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="dbHeaderLayout">
+        <item>
+         <widget class="QLabel" name="dbLabel">
+          <property name="text">
+           <string>数据库文件</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaComboBox" name="dbComboBox">
+          <property name="minimumSize">
+           <size>
+            <width>300</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="toolTip">
+           <string>选择要管理的账号数据库文件</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="newDbButton">
+          <property name="text">
+           <string>新建</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="deleteDbButton">
+          <property name="text">
+           <string>删除</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="refreshDbButton">
+          <property name="text">
+           <string>刷新</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="dbHeaderSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="settingLayout">
+        <item>
+         <widget class="QLabel" name="ipLabel">
+          <property name="text">
+           <string>公网 IP</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaLineEdit" name="ipLineEdit">
+          <property name="minimumSize">
+           <size>
+            <width>180</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="placeholderText">
+           <string>客户端登录时需填写的公网 IP</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="portLabel">
+          <property name="text">
+           <string>端口</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaLineEdit" name="portLineEdit">
+          <property name="minimumSize">
+           <size>
+            <width>100</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="placeholderText">
+           <string>1-65535</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="saveSettingButton">
+          <property name="text">
+           <string>保存设置</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="settingSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="dbPathLabel">
+        <property name="text">
+         <string>未选择数据库</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QFrame" name="userFrame">
+     <property name="minimumHeight">
+      <number>200</number>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <layout class="QVBoxLayout" name="userFrameLayout">
+      <property name="spacing">
+       <number>10</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <layout class="QHBoxLayout" name="userToolbarLayout">
+        <item>
+         <widget class="ElaLineEdit" name="searchLineEdit">
+          <property name="minimumSize">
+           <size>
+            <width>220</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="placeholderText">
+           <string>搜索用户名 / 备注…</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="searchButton">
+          <property name="text">
+           <string>查询</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="addUserButton">
+          <property name="text">
+           <string>新增用户</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="editUserButton">
+          <property name="text">
+           <string>修改用户</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="deleteUserButton">
+          <property name="text">
+           <string>删除用户</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="userToolbarSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="ElaTableView" name="userTableView">
+        <property name="toolTip">
+         <string>当前数据库中的用户列表</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ElaComboBox</class>
+   <extends>QComboBox</extends>
+   <header>ElaComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ElaLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header>ElaLineEdit.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ElaPushButton</class>
+   <extends>QPushButton</extends>
+   <header>ElaPushButton.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ElaTableView</class>
+   <extends>QTableView</extends>
+   <header>ElaTableView.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

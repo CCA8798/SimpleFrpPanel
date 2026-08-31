@@ -22,8 +22,18 @@ SimpleFrpPanel/
 └── src/                        # 项目源码（.h / .cpp / .ui）
     ├── main.cpp                # 入口：QApplication + eApp->init()
     ├── MainWindow.h/.cpp       # 主窗口：MainWindow : ElaWindow（导航框架）
-    └── HomePage.h/.cpp/.ui     # 中央页面：普通 QWidget 绑定 .ui（Designer 编辑）
+    ├── DatabaseManager.h/.cpp  # 账号数据库管理（data/*.db：SHA256 文件名 + users/settings 表）
+    ├── UserEditDialog.h/.cpp   # 新增/修改用户对话框
+    ├── HomePage.h/.cpp/.ui     # 首页
+    ├── ServerTunnelPage.h/.cpp/.ui  # 服务端 · 隧道管理
+    ├── ServerUserPage.h/.cpp/.ui    # 服务端 · 用户管理（db 文件管理 + 用户 CRUD + 公网 IP/端口设置）
+    └── ClientTunnelPage.h/.cpp/.ui   # 客户端 · 隧道管理
 ```
+
+> 账号数据库文件存放在 **`<程序运行目录>/data`** 下（运行时生成，已加入 .gitignore），
+> 每个文件以随机 SHA256（64 位十六进制）命名，内含 `users` 表（用户名/加盐密码摘要/
+> 备注/启用状态/创建时间）与 `settings` 表（键值设置：`public_ip`、`public_port`）。
+> 构建依赖 Qt 的 **Sql** 模块（QSQLITE 驱动由 windeployqt 自动部署）。
 
 ## 架构说明（Ela 主窗口 + ui 页面）
 
