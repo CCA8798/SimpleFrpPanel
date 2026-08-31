@@ -1,9 +1,14 @@
 # 构建输出
 build/
+build-*/
 cmake-build-*/
 out/
 *.user
 *.autosave
+
+# 发布打包
+release/
+dist/
 
 # 编译器中间产物
 *.o
