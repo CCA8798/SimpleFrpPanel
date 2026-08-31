@@ -89,11 +89,20 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     m_Ui->logTextEdit->setMaximumBlockCount(2000);
 
     // 修复 ElaPlainTextEdit 黑夜模式背景不变色：
-    // 库内只设置 Text/PlaceholderText，未设置 QPalette::Base，这里补充背景色跟随主题
+    // 库内样式表 background-color:transparent 会压制调色板 Base，文本区背景不跟随主题。
+    // 双保险：① 显式设置 widget 与 viewport 的调色板 Base；② 样式表直接写主题背景色
     const auto updateLogTheme = [this](ElaThemeType::ThemeMode themeMode) {
+        const QColor base = ElaThemeColor(themeMode, BasicBase);
+        const QColor textColor = ElaThemeColor(themeMode, BasicText);
         QPalette palette = m_Ui->logTextEdit->palette();
-        palette.setColor(QPalette::Base, ElaThemeColor(themeMode, BasicBase));
+        palette.setColor(QPalette::Base, base);
+        palette.setColor(QPalette::Text, textColor);
+        palette.setColor(QPalette::PlaceholderText, textColor);
         m_Ui->logTextEdit->setPalette(palette);
+        m_Ui->logTextEdit->viewport()->setPalette(palette);
+        m_Ui->logTextEdit->setStyleSheet(
+            QStringLiteral("#ElaPlainTextEdit { background-color: %1; color: %2; }")
+                .arg(base.name(), textColor.name()));
     };
     updateLogTheme(eTheme->getThemeMode());
     connect(eTheme, &ElaTheme::themeModeChanged, this, updateLogTheme);
