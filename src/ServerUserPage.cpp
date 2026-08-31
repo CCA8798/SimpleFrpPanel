@@ -386,7 +386,8 @@ void ServerUserPage::showConfirmDialog(const QString& title, const QString& cont
     QVBoxLayout* centralLayout = new QVBoxLayout(centralWidget);
     centralLayout->setContentsMargins(15, 14, 15, 8);
     ElaText* titleText = new ElaText(title, centralWidget);
-    titleText->setTextStyle(ElaTextType::Title);
+    titleText->setTextStyle(ElaTextType::Body);
+    titleText->setTextPixelSize(15);
     ElaText* contentText = new ElaText(content, centralWidget);
     contentText->setTextStyle(ElaTextType::Body);
     contentText->setTextPixelSize(13);

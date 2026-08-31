@@ -52,7 +52,8 @@ UserEditDialog::UserEditDialog(bool isEditMode, QWidget* parent)
     m_RemarkEdit->setPlaceholderText(QStringLiteral("备注（可选）"));
     m_RemarkEdit->setMaxLength(128);
 
-    // 到期时间：默认永不过期；取消勾选后可用日历选择器指定日期
+    // 到期时间：默认永不过期；取消勾选后启用日期选择器
+    // 注意：toggled 的参数是"勾选状态"，启用/禁用逻辑取反（勾选=禁用选择器）
     m_NeverExpireCheck = new ElaCheckBox(QStringLiteral("永不过期"), this);
     m_NeverExpireCheck->setChecked(true);
     m_ExpirePicker = new ElaCalendarPicker(this);
@@ -96,7 +97,9 @@ UserEditDialog::UserEditDialog(bool isEditMode, QWidget* parent)
     mainLayout->addLayout(formLayout);
     mainLayout->addLayout(buttonLayout);
 
-    connect(m_NeverExpireCheck, &ElaCheckBox::toggled, m_ExpirePicker, &ElaCalendarPicker::setEnabled);
+    connect(m_NeverExpireCheck, &ElaCheckBox::toggled, this, [this](bool checked) {
+        m_ExpirePicker->setEnabled(!checked);
+    });
     connect(cancelButton, &ElaPushButton::clicked, this, &QDialog::reject);
     connect(okButton, &ElaPushButton::clicked, this, [this]() {
         if (username().trimmed().isEmpty())
