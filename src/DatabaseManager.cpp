@@ -110,7 +110,12 @@ bool DatabaseManager::deleteDatabase(const QString& fileName)
     {
         closeConnection();
     }
-    return QFile::remove(dataDirectory() + QLatin1Char('/') + fileName);
+    const QString basePath = dataDirectory() + QLatin1Char('/') + fileName;
+    const bool ok = QFile::remove(basePath);
+    // WAL 模式会产生 -wal/-shm 伴随文件，一并清理
+    QFile::remove(basePath + QStringLiteral("-wal"));
+    QFile::remove(basePath + QStringLiteral("-shm"));
+    return ok;
 }
 
 bool DatabaseManager::openDatabase(const QString& fileName)
@@ -810,35 +815,23 @@ bool DatabaseManager::addTraffic(int userId, const QString& userName, int tunnel
     {
         return true; // 无增量，跳过
     }
-    QSqlDatabase database = QSqlDatabase::database(kConnectionName);
-    // 先尝试累加已有记录
-    QSqlQuery updateQuery(database);
-    updateQuery.prepare(QStringLiteral(
-        "UPDATE traffic_records SET bytes_in = bytes_in + ?, bytes_out = bytes_out + ?"
-        " WHERE user_id = ? AND tunnel_id = ? AND record_date = ?"));
-    updateQuery.addBindValue(bytesIn);
-    updateQuery.addBindValue(bytesOut);
-    updateQuery.addBindValue(userId);
-    updateQuery.addBindValue(tunnelId);
-    updateQuery.addBindValue(recordDate);
-    if (updateQuery.exec() && updateQuery.numRowsAffected() > 0)
-    {
-        return true;
-    }
-    // 不存在则插入新记录
-    QSqlQuery insertQuery(database);
-    insertQuery.prepare(QStringLiteral(
-        "INSERT OR REPLACE INTO traffic_records"
+    // 单条 UPSERT 原子累加：并发下不会丢累加值（避免先 UPDATE 后 INSERT 的两步法）
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "INSERT INTO traffic_records"
         " (user_id, user_name, tunnel_id, tunnel_name, record_date, bytes_in, bytes_out)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)"));
-    insertQuery.addBindValue(userId);
-    insertQuery.addBindValue(userName.trimmed().isEmpty() ? QStringLiteral("(已删除用户)") : userName.trimmed());
-    insertQuery.addBindValue(tunnelId);
-    insertQuery.addBindValue(tunnelName.trimmed().isEmpty() ? QStringLiteral("(已删除隧道)") : tunnelName.trimmed());
-    insertQuery.addBindValue(recordDate);
-    insertQuery.addBindValue(bytesIn);
-    insertQuery.addBindValue(bytesOut);
-    return insertQuery.exec();
+        " VALUES (?, ?, ?, ?, ?, ?, ?)"
+        " ON CONFLICT(user_id, tunnel_id, record_date) DO UPDATE SET"
+        " bytes_in = bytes_in + excluded.bytes_in,"
+        " bytes_out = bytes_out + excluded.bytes_out"));
+    query.addBindValue(userId);
+    query.addBindValue(userName.trimmed().isEmpty() ? QStringLiteral("(已删除用户)") : userName.trimmed());
+    query.addBindValue(tunnelId);
+    query.addBindValue(tunnelName.trimmed().isEmpty() ? QStringLiteral("(已删除隧道)") : tunnelName.trimmed());
+    query.addBindValue(recordDate);
+    query.addBindValue(bytesIn);
+    query.addBindValue(bytesOut);
+    return query.exec();
 }
 
 QList<DatabaseManager::TrafficSummary> DatabaseManager::queryTunnelTraffic(int userId,
@@ -1055,6 +1048,10 @@ bool DatabaseManager::openConnection(const QString& fileName)
     }
     // 启用外键约束：删除用户时级联删除其隧道
     database.exec(QStringLiteral("PRAGMA foreign_keys = ON"));
+    // 多连接并发（面板各页面/流量监控同时读写同一文件）：
+    // WAL 允许读写并行，busy_timeout 避免瞬时锁冲突导致查询失败
+    database.exec(QStringLiteral("PRAGMA journal_mode = WAL"));
+    database.exec(QStringLiteral("PRAGMA busy_timeout = 5000"));
     return true;
 }
 

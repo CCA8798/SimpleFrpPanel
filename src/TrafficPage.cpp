@@ -162,8 +162,11 @@ void TrafficPage::onCurrentDbChanged()
         return;
     }
     refreshUserComboBox();
-    m_LastQuerySignature.clear();
-    runQuery();
+    // 延迟到弹层关闭后再查询，避免在弹层事件循环内重建表格造成卡顿
+    QTimer::singleShot(0, this, [this]() {
+        m_LastQuerySignature.clear();
+        runQuery();
+    });
 }
 
 void TrafficPage::onCurrentUserChanged()
@@ -171,9 +174,12 @@ void TrafficPage::onCurrentUserChanged()
     m_CurrentUserId = (m_Ui->userComboBox->currentIndex() >= 0)
                           ? m_Ui->userComboBox->currentData().toInt()
                           : kAllUsersId;
-    refreshTunnelComboBox();
-    m_LastQuerySignature.clear();
-    runQuery();
+    // 延迟到用户下拉弹层关闭后再刷新隧道下拉与查询
+    QTimer::singleShot(0, this, [this]() {
+        refreshTunnelComboBox();
+        m_LastQuerySignature.clear();
+        runQuery();
+    });
 }
 
 void TrafficPage::refreshUserComboBox()
@@ -240,8 +246,11 @@ void TrafficPage::onPollRefresh()
     {
         return;
     }
-    // 下拉框弹出期间（模态弹出事件循环）跳过自动刷新，避免下拉框卡顿
-    if (QApplication::activePopupWidget())
+    // 下拉框弹出期间跳过自动刷新，避免下拉框卡顿（activePopupWidget + 视图可见性双保险）
+    if (QApplication::activePopupWidget()
+        || m_Ui->dbComboBox->view()->isVisible()
+        || m_Ui->userComboBox->view()->isVisible()
+        || m_Ui->tunnelComboBox->view()->isVisible())
     {
         return;
     }
@@ -264,6 +273,11 @@ void TrafficPage::runQuery()
     {
         dateFrom = m_Ui->startDatePicker->getSelectedDate().toString(QStringLiteral("yyyy-MM-dd"));
         dateTo = m_Ui->endDatePicker->getSelectedDate().toString(QStringLiteral("yyyy-MM-dd"));
+        // 起始日期晚于结束日期时自动交换
+        if (dateFrom > dateTo)
+        {
+            qSwap(dateFrom, dateTo);
+        }
     }
     const QString rangeText = m_Ui->allTimeCheck->isChecked()
                                   ? QStringLiteral("全部时间")
