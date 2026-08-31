@@ -353,7 +353,7 @@ void ClientTunnelPage::updateLoginUi()
     m_Ui->serverPortEdit->setEnabled(!loggedIn);
     m_Ui->usernameEdit->setEnabled(!loggedIn);
     m_Ui->passwordEdit->setEnabled(!loggedIn);
-    m_Ui->loginButton->setEnabled(!loggedIn && connected);
+    m_Ui->loginButton->setEnabled(!loggedIn);
     m_Ui->logoutButton->setEnabled(loggedIn);
     m_Ui->refreshButton->setEnabled(loggedIn);
     m_Ui->addTunnelButton->setEnabled(loggedIn);
