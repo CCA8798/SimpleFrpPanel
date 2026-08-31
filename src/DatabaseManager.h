@@ -94,6 +94,20 @@ public:
 
     // ---- 工具 ----
     static QString hashPassword(const QString& password); // 加盐 SHA-256，格式 "盐:摘要"
+    static bool verifyPassword(const QString& password, const QString& storedHash);
+
+    // 登录校验结果
+    enum class LoginResult
+    {
+        Ok,
+        UserNotFound,
+        WrongPassword,
+        Disabled,
+        Expired,
+    };
+    // 校验用户名/密码（含启用状态与到期时间），成功时填充用户信息（含配额）
+    LoginResult verifyUserLogin(const QString& username, const QString& password,
+                                UserInfo* user) const;
 
 private:
     bool openConnection(const QString& fileName);

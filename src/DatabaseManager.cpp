@@ -750,6 +750,73 @@ QString DatabaseManager::hashPassword(const QString& password)
     return QString::fromLatin1(result);
 }
 
+bool DatabaseManager::verifyPassword(const QString& password, const QString& storedHash)
+{
+    const QStringList parts = storedHash.split(QLatin1Char(':'));
+    if (parts.size() != 2)
+    {
+        return false;
+    }
+    const QByteArray salt = QByteArray::fromHex(parts[0].toLatin1());
+    const QByteArray expected = QByteArray::fromHex(parts[1].toLatin1());
+    const QByteArray digest = QCryptographicHash::hash(salt + password.toUtf8(), QCryptographicHash::Sha256);
+    return digest.compare(expected, Qt::CaseInsensitive) == 0;
+}
+
+DatabaseManager::LoginResult DatabaseManager::verifyUserLogin(const QString& username,
+                                                              const QString& password,
+                                                              UserInfo* user) const
+{
+    if (!isOpen())
+    {
+        return LoginResult::UserNotFound;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "SELECT id, username, password_hash, is_enabled, expire_at, remark, created_at,"
+        " remote_port_min, remote_port_max, local_port_min, local_port_max, max_port_count"
+        " FROM users WHERE username = ?"));
+    query.addBindValue(username.trimmed());
+    if (!query.exec() || !query.next())
+    {
+        return LoginResult::UserNotFound;
+    }
+    const QString storedHash = query.value(2).toString();
+    if (!verifyPassword(password, storedHash))
+    {
+        return LoginResult::WrongPassword;
+    }
+    if (query.value(3).toInt() == 0)
+    {
+        return LoginResult::Disabled;
+    }
+    const QString expireAt = query.value(4).toString();
+    if (!expireAt.isEmpty())
+    {
+        const QDate expireDate = QDate::fromString(expireAt, QStringLiteral("yyyy-MM-dd"));
+        if (expireDate.isValid() && expireDate < QDate::currentDate())
+        {
+            return LoginResult::Expired;
+        }
+    }
+
+    if (user)
+    {
+        user->id = query.value(0).toInt();
+        user->username = query.value(1).toString();
+        user->isEnabled = true;
+        user->expireAt = expireAt;
+        user->remark = query.value(5).toString();
+        user->createdAt = query.value(6).toString();
+        user->remotePortMin = query.value(7).toInt();
+        user->remotePortMax = query.value(8).toInt();
+        user->localPortMin = query.value(9).toInt();
+        user->localPortMax = query.value(10).toInt();
+        user->maxPortCount = query.value(11).toInt();
+    }
+    return LoginResult::Ok;
+}
+
 bool DatabaseManager::openConnection(const QString& fileName)
 {
     closeConnection();

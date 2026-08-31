@@ -26,10 +26,13 @@ SimpleFrpPanel/
     ├── UserEditDialog.h/.cpp   # 新增/修改用户对话框
     ├── FrpsManager.h/.cpp      # frps 进程管理（配置生成 / 启停 / 日志转发）
     ├── TunnelEditDialog.h/.cpp # 新增/修改隧道对话框
+    ├── StatusDotDelegate.h/.cpp  # 隧道运行状况状态灯委托（绿=运行中/灰=未运行/橙=已禁用）
+    ├── PanelApiServer.h/.cpp   # 面板 API 服务端（TCP + JSON 行协议，token 认证，配额强制）
+    ├── PanelClient.h/.cpp      # 面板 API 客户端（登录/隧道 CRUD/启停，请求序号关联）
     ├── HomePage.h/.cpp/.ui     # 首页
-    ├── ServerTunnelPage.h/.cpp/.ui  # 服务端 · 隧道管理（库/用户联动 + 隧道 CRUD + frps 控制 + 日志）
+    ├── ServerTunnelPage.h/.cpp/.ui  # 服务端 · 隧道管理（库/用户联动 + 配额 + frps 控制 + 面板服务 + 日志）
     ├── ServerUserPage.h/.cpp/.ui    # 服务端 · 用户管理（db 文件管理 + 用户 CRUD + 公网 IP/端口设置）
-    └── ClientTunnelPage.h/.cpp/.ui   # 客户端 · 隧道管理
+    └── ClientTunnelPage.h/.cpp/.ui   # 客户端 · 隧道管理（服务器登录 + 我的隧道启停/增删查改 + 配额显示 + 日志）
 ```
 
 > 账号数据库文件存放在 **`<程序运行目录>/data`** 下（运行时生成，已加入 .gitignore），
@@ -49,6 +52,13 @@ SimpleFrpPanel/
 > `data/<库名>.frps.toml`（bindPort + auth.token + 各用户远端端口范围白名单 allowPorts），
 > 配额或隧道变更后若 frps 在运行会自动热重启；运行日志实时显示在页面底部。
 > frps.exe 路径持久化在程序目录 `config.ini`（QSettings）。
+
+> **客户端-服务端集成**：服务端隧道页的"面板服务"在**公网端口**（用户管理页设置）上提供
+> TCP + JSON 行协议 API（`PanelApiServer`）：登录（用户名/密码，禁用/过期账号拒绝，签发
+> token）、隧道列表（含运行状况）、增删改、启停；所有隧道操作在服务端做配额与**归属校验**
+> （只能操作自己的隧道）。客户端隧道页通过 `PanelClient` 连接登录后，在配额范围内自选端口
+> 管理自己的隧道（行内开关启停、状态灯显示、配额用量实时显示），操作日志实时展示。
+> 构建依赖 Qt 的 **Sql + Network** 模块。
 
 ## 架构说明（Ela 主窗口 + ui 页面）
 

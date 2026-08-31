@@ -25,8 +25,8 @@ if(QT_SDK_DIR)
     list(APPEND CMAKE_PREFIX_PATH "${QT_SDK_DIR}")
 endif()
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network)
 
 if(QT_QMAKE_EXECUTABLE)
     message(STATUS "使用 Qt ${QT_VERSION}（${QT_QMAKE_EXECUTABLE}）")
@@ -96,12 +96,18 @@ add_executable(SimpleFrpPanel WIN32
     src/FrpsManager.cpp
     src/TunnelEditDialog.h
     src/TunnelEditDialog.cpp
+    src/StatusDotDelegate.h
+    src/StatusDotDelegate.cpp
+    src/PanelApiServer.h
+    src/PanelApiServer.cpp
+    src/PanelClient.h
+    src/PanelClient.cpp
 )
 
 # 使 uic 能解析 .ui 中"提升"的 Ela 控件头文件（ElaPushButton.h 等）
 target_include_directories(SimpleFrpPanel PRIVATE src)
 
-target_link_libraries(SimpleFrpPanel PRIVATE Ela::WidgetTools Qt${QT_VERSION_MAJOR}::Sql)
+target_link_libraries(SimpleFrpPanel PRIVATE Ela::WidgetTools Qt${QT_VERSION_MAJOR}::Sql Qt${QT_VERSION_MAJOR}::Network)
 
 if(MSVC)
     target_compile_options(SimpleFrpPanel PRIVATE /utf-8)

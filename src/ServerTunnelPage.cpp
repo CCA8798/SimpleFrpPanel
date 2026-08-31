@@ -17,12 +17,15 @@
 #include "ElaText.h"
 #include "ElaToggleSwitch.h"
 #include "FrpsManager.h"
+#include "PanelApiServer.h"
+#include "StatusDotDelegate.h"
 #include "TunnelEditDialog.h"
 #include "ui_ServerTunnelPage.h"
 
 namespace {
 const QString kSettingFrpsBindPort = QStringLiteral("frps_bind_port");
 const QString kSettingFrpsToken = QStringLiteral("frps_token");
+const QString kSettingPublicPort = QStringLiteral("public_port");
 
 QString randomHexToken(int byteCount)
 {
@@ -56,6 +59,13 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
 {
     m_Ui->setupUi(this);
 
+    // 面板 API 服务：为客户端隧道管理提供 TCP 接口
+    m_PanelApiServer = new PanelApiServer(m_DatabaseManager, m_FrpsManager, this);
+    connect(m_PanelApiServer, &PanelApiServer::runningChanged, this, [this](bool) {
+        updatePanelServiceUi();
+    });
+    connect(m_PanelApiServer, &PanelApiServer::logMessage, this, &ServerTunnelPage::appendLog);
+
     // 布局：顶部固定紧凑，中部自动扩展，日志区固定高度
     m_Ui->topFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_Ui->logFrame->setFixedHeight(150);
@@ -67,6 +77,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
         m_Ui->frpsTokenEdit, m_Ui->startButton,
         m_Ui->remoteMinEdit, m_Ui->remoteMaxEdit, m_Ui->localMinEdit,
         m_Ui->localMaxEdit, m_Ui->maxPortCountEdit, m_Ui->saveQuotaButton,
+        m_Ui->panelPortEdit, m_Ui->panelServiceButton,
     };
     for (QWidget* widget : topWidgets)
     {
@@ -77,6 +88,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     // 顶部小字号文本
     m_Ui->frpsStatusLabel->setTextPixelSize(12);
     m_Ui->logTitleLabel->setTextPixelSize(12);
+    m_Ui->panelServiceStatusLabel->setTextPixelSize(12);
 
     // 端口输入校验
     m_Ui->frpsPortEdit->setValidator(new QIntValidator(1, 65535, this));
@@ -105,6 +117,8 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     m_Ui->tunnelTableView->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
     m_Ui->tunnelTableView->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
     m_Ui->tunnelTableView->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
+    // 运行状况列：彩色状态灯委托
+    m_Ui->tunnelTableView->setItemDelegateForColumn(5, new StatusDotDelegate(m_Ui->tunnelTableView));
 
     // 日志面板限制行数
     m_Ui->logTextEdit->setMaximumBlockCount(2000);
@@ -123,6 +137,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     connect(m_Ui->startButton, &QPushButton::clicked, this, &ServerTunnelPage::onToggleFrps);
     connect(m_Ui->clearLogButton, &QPushButton::clicked, this, &ServerTunnelPage::onClearLog);
     connect(m_Ui->saveQuotaButton, &QPushButton::clicked, this, &ServerTunnelPage::onSaveQuota);
+    connect(m_Ui->panelServiceButton, &QPushButton::clicked, this, &ServerTunnelPage::onTogglePanelService);
 
     connect(m_FrpsManager, &FrpsManager::runningChanged, this, [this](bool) {
         updateFrpsStatusUi();
@@ -208,6 +223,11 @@ void ServerTunnelPage::onCurrentDbChanged()
     m_Ui->frpsTokenEdit->setText(token);
     m_Ui->frpsPathEdit->setText(m_FrpsManager->frpsPath());
     updateFrpsStatusUi();
+
+    // 面板服务端口 = 用户管理页设置的公网端口（客户端登录端口）
+    m_Ui->panelPortEdit->setText(m_DatabaseManager->getSetting(kSettingPublicPort));
+    updatePanelServiceUi();
+    syncPanelServiceWithDb();
 
     onRefreshUserComboBox();
     updateControlsEnabled();
@@ -449,6 +469,80 @@ void ServerTunnelPage::onToggleFrps()
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), frpsConfigPath()));
 }
 
+void ServerTunnelPage::onTogglePanelService()
+{
+    if (m_PanelApiServer->isRunning())
+    {
+        m_PanelApiServer->stop();
+        appendLog(QStringLiteral("[%1] 面板服务已停止")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+        return;
+    }
+    const QString portText = m_Ui->panelPortEdit->text().trimmed();
+    bool portOk = false;
+    const int portValue = portText.toInt(&portOk);
+    if (!portOk || portValue < 1 || portValue > 65535)
+    {
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("请先在用户管理页设置有效的公网端口（客户端登录端口）"), 3000, this);
+        return;
+    }
+    // 同步公网端口设置（与用户管理页保持一致）
+    m_DatabaseManager->setSetting(kSettingPublicPort, portText);
+
+    QString errorMessage;
+    if (!m_PanelApiServer->start(static_cast<quint16>(portValue), &errorMessage))
+    {
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             errorMessage, 3000, this);
+        appendLog(QStringLiteral("[%1] 面板服务启动失败: %2")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
+        return;
+    }
+    appendLog(QStringLiteral("[%1] 面板服务已启动，监听端口 %2（客户端在此端口登录）")
+                  .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
+                  .arg(portValue));
+}
+
+void ServerTunnelPage::updatePanelServiceUi()
+{
+    const bool running = m_PanelApiServer->isRunning();
+    m_Ui->panelServiceButton->setText(running ? QStringLiteral("停止服务") : QStringLiteral("启动服务"));
+    m_Ui->panelServiceStatusLabel->setText(running
+                                               ? QStringLiteral("运行中 (端口 %1)").arg(m_PanelApiServer->port())
+                                               : QStringLiteral("未运行"));
+}
+
+void ServerTunnelPage::syncPanelServiceWithDb()
+{
+    // 切换数据库时：若面板服务在运行，则用新库的公网端口重启
+    if (!m_PanelApiServer->isRunning())
+    {
+        return;
+    }
+    const QString portText = m_Ui->panelPortEdit->text().trimmed();
+    bool portOk = false;
+    const int portValue = portText.toInt(&portOk);
+    if (!portOk || portValue < 1 || portValue > 65535)
+    {
+        m_PanelApiServer->stop();
+        appendLog(QStringLiteral("[%1] 面板服务已停止（新数据库未设置公网端口）")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+        return;
+    }
+    m_PanelApiServer->stop();
+    QString errorMessage;
+    if (!m_PanelApiServer->start(static_cast<quint16>(portValue), &errorMessage))
+    {
+        appendLog(QStringLiteral("[%1] 面板服务重启失败: %2")
+                      .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
+        return;
+    }
+    appendLog(QStringLiteral("[%1] 面板服务已切换到新数据库端口 %2")
+                  .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")))
+                  .arg(portValue));
+}
+
 void ServerTunnelPage::onClearLog()
 {
     m_Ui->logTextEdit->clear();
@@ -529,6 +623,8 @@ void ServerTunnelPage::refreshTunnelTable()
         QStandardItem* switchItem = new QStandardItem();
         switchItem->setData(tunnel.id, Qt::UserRole);
         switchItem->setTextAlignment(Qt::AlignCenter);
+        // 显式尺寸提示，保证开关列足够宽（否则开关被裁剪、无法点击）
+        switchItem->setSizeHint(QSize(56, 26));
         m_TunnelModel->setItem(row, 0, switchItem);
 
         QStandardItem* nameItem = new QStandardItem(tunnel.name);
@@ -578,6 +674,10 @@ void ServerTunnelPage::refreshTunnelTable()
 
         // 行内开关：切换隧道启用状态，立即重新生成配置并热重启 frps
         ElaToggleSwitch* toggleSwitch = new ElaToggleSwitch(m_Ui->tunnelTableView);
+        // 修复 ElaToggleSwitch 初始绘制：私有成员 _circleCenterX 初始为 0，
+        // 首次绘制旋钮会停在最左端；连续两次 setIsToggled 驱动旋钮动画到正确位置
+        // （此时尚未 connect，不会误触发信号）
+        toggleSwitch->setIsToggled(!tunnel.isEnabled);
         toggleSwitch->setIsToggled(tunnel.isEnabled);
         m_Ui->tunnelTableView->setIndexWidget(m_TunnelModel->index(row, 0), toggleSwitch);
         connect(toggleSwitch, &ElaToggleSwitch::toggled, this, [this, tunnelId = tunnel.id](bool checked) {
@@ -585,12 +685,26 @@ void ServerTunnelPage::refreshTunnelTable()
             {
                 ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
                                      QStringLiteral("更新隧道状态失败"), 2000, this);
+                refreshTunnelTable();
+                return;
             }
-            else
+            applyFrpsConfig(true);
+            // 局部更新该行的运行状况文本，避免整体重建中断开关的点击事件
+            const QString newStatus = checked
+                                          ? (m_FrpsManager->isRunning() ? QStringLiteral("运行中")
+                                                                         : QStringLiteral("未运行"))
+                                          : QStringLiteral("已禁用");
+            for (int statusRow = 0; statusRow < m_TunnelModel->rowCount(); ++statusRow)
             {
-                applyFrpsConfig(true);
+                if (m_TunnelModel->item(statusRow, 0)->data(Qt::UserRole).toInt() == tunnelId)
+                {
+                    if (QStandardItem* statusItem = m_TunnelModel->item(statusRow, 5))
+                    {
+                        statusItem->setText(newStatus);
+                    }
+                    break;
+                }
             }
-            refreshTunnelTable();
         });
     }
 }
@@ -609,6 +723,8 @@ void ServerTunnelPage::updateControlsEnabled()
     m_Ui->localMaxEdit->setEnabled(hasUser);
     m_Ui->maxPortCountEdit->setEnabled(hasUser);
     m_Ui->saveQuotaButton->setEnabled(hasUser);
+    m_Ui->panelPortEdit->setEnabled(hasDatabase);
+    m_Ui->panelServiceButton->setEnabled(hasDatabase);
     m_Ui->searchLineEdit->setEnabled(hasUser);
     m_Ui->searchButton->setEnabled(hasUser);
     m_Ui->addTunnelButton->setEnabled(hasUser);

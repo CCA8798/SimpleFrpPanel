@@ -7,6 +7,7 @@
 
 class DatabaseManager;
 class FrpsManager;
+class PanelApiServer;
 class QStandardItemModel;
 
 namespace Ui {
@@ -41,11 +42,14 @@ private slots:
     void onToggleFrps();
     void onClearLog();
     void onSaveQuota();
+    void onTogglePanelService();
 
 private:
     void refreshTunnelTable();
     void updateControlsEnabled();
     void loadQuotaToUi();
+    void updatePanelServiceUi();
+    void syncPanelServiceWithDb();
     int selectedTunnelId() const;
     void appendLog(const QString& text);
     void updateFrpsStatusUi();
@@ -58,6 +62,7 @@ private:
     Ui::ServerTunnelPage* m_Ui = nullptr;
     DatabaseManager* m_DatabaseManager = nullptr;
     FrpsManager* m_FrpsManager = nullptr;
+    PanelApiServer* m_PanelApiServer = nullptr;
     QStandardItemModel* m_TunnelModel = nullptr;
     int m_CurrentUserId = -1;
 };

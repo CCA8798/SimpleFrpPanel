@@ -319,6 +319,57 @@
         </item>
        </layout>
       </item>
+      <item>
+       <layout class="QHBoxLayout" name="panelServiceRow">
+        <item>
+         <widget class="QLabel" name="panelServiceLabel">
+          <property name="text">
+           <string>面板服务</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaLineEdit" name="panelPortEdit">
+          <property name="minimumSize">
+           <size>
+            <width>70</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="placeholderText">
+           <string>公网端口</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaPushButton" name="panelServiceButton">
+          <property name="text">
+           <string>启动服务</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="ElaText" name="panelServiceStatusLabel">
+          <property name="text">
+           <string>未运行</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="panelServiceSpacer">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
      </layout>
     </widget>
    </item>
