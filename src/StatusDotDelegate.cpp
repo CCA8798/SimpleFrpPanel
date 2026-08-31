@@ -11,9 +11,10 @@ StatusDotDelegate::StatusDotDelegate(QObject* parent)
 void StatusDotDelegate::paint(QPainter* painter, const QStyleOptionViewItem& option,
                               const QModelIndex& index) const
 {
-    // 先绘制默认的选中/悬停背景
+    // 绘制默认的选中/悬停背景，但清空默认文本（否则文字会被绘制两次造成重叠）
     QStyleOptionViewItem opt = option;
     initStyleOption(&opt, index);
+    opt.text.clear();
     QStyle* style = opt.widget ? opt.widget->style() : QApplication::style();
     style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
 

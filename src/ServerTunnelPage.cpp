@@ -140,8 +140,10 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     connect(m_Ui->panelServiceButton, &QPushButton::clicked, this, &ServerTunnelPage::onTogglePanelService);
 
     connect(m_FrpsManager, &FrpsManager::runningChanged, this, [this](bool) {
+        // 只更新状态灯与状态列文本，绝不重建表格：
+        // 整体重建会删除开关控件（发生在开关自己的鼠标事件栈内），导致开关失灵
         updateFrpsStatusUi();
-        refreshTunnelTable();
+        updateTunnelStatusColumn();
     });
     connect(m_FrpsManager, &FrpsManager::logMessage, this, &ServerTunnelPage::appendLog);
 
@@ -785,6 +787,29 @@ void ServerTunnelPage::updateFrpsStatusUi()
     const bool running = m_FrpsManager->isRunning();
     m_Ui->startButton->setText(running ? QStringLiteral("停止") : QStringLiteral("启动"));
     m_Ui->frpsStatusLabel->setText(running ? QStringLiteral("运行中") : QStringLiteral("未运行"));
+    // 状态灯：运行中=绿，未运行=灰
+    m_Ui->frpsStatusLight->setColor(running ? QColor(0x4C, 0xAF, 0x50)
+                                            : QColor(0x9E, 0x9E, 0x9E));
+}
+
+void ServerTunnelPage::updateTunnelStatusColumn()
+{
+    // frps 启停只影响"运行中/未运行"，已禁用的隧道保持不动
+    const bool frpsRunning = m_FrpsManager->isRunning();
+    for (int row = 0; row < m_TunnelModel->rowCount(); ++row)
+    {
+        QStandardItem* statusItem = m_TunnelModel->item(row, 5);
+        if (!statusItem)
+        {
+            continue;
+        }
+        const QString text = statusItem->text();
+        if (text == QStringLiteral("已禁用"))
+        {
+            continue;
+        }
+        statusItem->setText(frpsRunning ? QStringLiteral("运行中") : QStringLiteral("未运行"));
+    }
 }
 
 void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)

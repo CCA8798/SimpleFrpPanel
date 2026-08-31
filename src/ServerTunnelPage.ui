@@ -182,6 +182,13 @@
          </widget>
         </item>
         <item>
+         <widget class="StatusLight" name="frpsStatusLight">
+          <property name="toolTip">
+           <string>frps 运行状态</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="ElaText" name="frpsStatusLabel">
           <property name="text">
            <string>未运行</string>
@@ -555,6 +562,11 @@
    <class>ElaText</class>
    <extends>QLabel</extends>
    <header>ElaText.h</header>
+  </customwidget>
+  <customwidget>
+   <class>StatusLight</class>
+   <extends>QWidget</extends>
+   <header>StatusLight.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -46,6 +46,7 @@ private slots:
 
 private:
     void refreshTunnelTable();
+    void updateTunnelStatusColumn();
     void updateControlsEnabled();
     void loadQuotaToUi();
     void updatePanelServiceUi();

@@ -98,6 +98,8 @@ add_executable(SimpleFrpPanel WIN32
     src/TunnelEditDialog.cpp
     src/StatusDotDelegate.h
     src/StatusDotDelegate.cpp
+    src/StatusLight.h
+    src/StatusLight.cpp
     src/PanelApiServer.h
     src/PanelApiServer.cpp
     src/PanelClient.h
