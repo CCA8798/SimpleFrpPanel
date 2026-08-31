@@ -8,6 +8,7 @@
 #include <QShowEvent>
 #include <QStandardItemModel>
 #include <QTime>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "DatabaseManager.h"
@@ -147,6 +148,12 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     });
     connect(m_FrpsManager, &FrpsManager::logMessage, this, &ServerTunnelPage::appendLog);
 
+    // 轮询刷新：5 秒一次，客户端通过 API 的远程变更无需手动刷新
+    m_PollTimer = new QTimer(this);
+    m_PollTimer->setInterval(5000);
+    connect(m_PollTimer, &QTimer::timeout, this, &ServerTunnelPage::onPollRefresh);
+    m_PollTimer->start();
+
     onRefreshDbComboBox();
 }
 
@@ -159,7 +166,61 @@ void ServerTunnelPage::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
     // 页面每次显示时刷新：及时感知其他页面（如用户管理）对库/用户的增删
+    m_LastSignature.clear();
     onRefreshDbComboBox();
+    m_LastSignature = stateSignature();
+}
+
+void ServerTunnelPage::onPollRefresh()
+{
+    // 只有数据真正变化才重建界面，避免打断用户正在进行的操作
+    const QString signature = stateSignature();
+    if (signature != m_LastSignature)
+    {
+        m_LastSignature = signature;
+        onRefreshDbComboBox();
+    }
+}
+
+QString ServerTunnelPage::stateSignature() const
+{
+    QStringList parts = m_DatabaseManager->databaseFileNames();
+    parts << QStringLiteral("|") << m_Ui->dbComboBox->currentText();
+    if (m_DatabaseManager->isOpen())
+    {
+        const QList<DatabaseManager::UserInfo> users = m_DatabaseManager->queryUsers();
+        for (const DatabaseManager::UserInfo& user : users)
+        {
+            parts << QStringLiteral("%1:%2:%3:%4:%5:%6:%7:%8")
+                         .arg(user.id)
+                         .arg(user.username)
+                         .arg(user.isEnabled ? 1 : 0)
+                         .arg(user.remotePortMin)
+                         .arg(user.remotePortMax)
+                         .arg(user.localPortMin)
+                         .arg(user.localPortMax)
+                         .arg(user.maxPortCount);
+            if (user.id == m_CurrentUserId)
+            {
+                const QList<DatabaseManager::TunnelInfo> tunnels = m_DatabaseManager->queryTunnels(user.id);
+                for (const DatabaseManager::TunnelInfo& tunnel : tunnels)
+                {
+                    parts << QStringLiteral("%1:%2:%3:%4:%5:%6:%7:%8")
+                                 .arg(tunnel.id)
+                                 .arg(tunnel.name)
+                                 .arg(tunnel.protocol)
+                                 .arg(tunnel.remotePort)
+                                 .arg(tunnel.localIp)
+                                 .arg(tunnel.localPort)
+                                 .arg(tunnel.customDomain)
+                                 .arg(tunnel.isEnabled ? 1 : 0);
+                }
+            }
+        }
+    }
+    parts << QStringLiteral("|") << m_DatabaseManager->getSetting(QStringLiteral("public_port"))
+          << (m_FrpsManager->isRunning() ? QStringLiteral("1") : QStringLiteral("0"));
+    return parts.join(QLatin1Char(','));
 }
 
 void ServerTunnelPage::onRefreshDbComboBox()

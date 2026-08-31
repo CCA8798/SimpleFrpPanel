@@ -8,6 +8,7 @@
 class FrpsManager;
 class PanelClient;
 class QStandardItemModel;
+class QTimer;
 
 namespace Ui {
 class ClientTunnelPage;
@@ -25,6 +26,10 @@ class ClientTunnelPage : public QWidget
 public:
     explicit ClientTunnelPage(QWidget* parent = nullptr);
     ~ClientTunnelPage() override;
+
+protected:
+    // 每次切换到本面板时刷新一次
+    void showEvent(QShowEvent* event) override;
 
 private slots:
     void onLoginClicked();
@@ -55,6 +60,8 @@ private:
     QJsonObject m_ServerInfo;
     bool m_FrpsRunning = false;
     bool m_PendingLogin = false;
+    QTimer* m_PollTimer = nullptr;
+    QString m_LastTunnelsSignature;
 };
 
 #endif // CLIENTTUNNELPAGE_H

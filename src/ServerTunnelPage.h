@@ -9,6 +9,7 @@ class DatabaseManager;
 class FrpsManager;
 class PanelApiServer;
 class QStandardItemModel;
+class QTimer;
 
 namespace Ui {
 class ServerTunnelPage;
@@ -43,12 +44,14 @@ private slots:
     void onClearLog();
     void onSaveQuota();
     void onTogglePanelService();
+    void onPollRefresh();
 
 private:
     void refreshTunnelTable();
     void updateTunnelStatusColumn();
     void updateControlsEnabled();
     void loadQuotaToUi();
+    QString stateSignature() const;
     void updatePanelServiceUi();
     void syncPanelServiceWithDb();
     int selectedTunnelId() const;
@@ -69,6 +72,9 @@ private:
     // 面板服务当前服务的数据库与端口（避免无谓重启导致客户端掉线）
     QString m_PanelServiceDbName;
     int m_PanelServicePort = 0;
+    // 轮询刷新
+    QTimer* m_PollTimer = nullptr;
+    QString m_LastSignature;
 };
 
 #endif // SERVERTUNNELPAGE_H

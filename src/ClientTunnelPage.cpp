@@ -4,9 +4,12 @@
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QIntValidator>
+#include <QJsonDocument>
 #include <QSettings>
+#include <QShowEvent>
 #include <QStandardItemModel>
 #include <QTime>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "ElaContentDialog.h"
@@ -61,6 +64,17 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     m_Ui->logTitleLabel->setTextPixelSize(12);
     m_Ui->frpcStatusLabel->setTextPixelSize(12);
     m_Ui->frpcPathEdit->setText(m_FrpcManager->frpsPath());
+
+    // 轮询刷新：3 秒一次，服务端远程变更（其他客户端/服务端页）自动同步
+    m_PollTimer = new QTimer(this);
+    m_PollTimer->setInterval(3000);
+    connect(m_PollTimer, &QTimer::timeout, this, [this]() {
+        if (m_Client->isLoggedIn())
+        {
+            m_Client->requestTunnels();
+        }
+    });
+    m_PollTimer->start();
 
     m_Ui->serverPortEdit->setValidator(new QIntValidator(1, 65535, this));
     m_Ui->logTextEdit->setMaximumBlockCount(2000);
@@ -119,6 +133,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         m_ServerInfo = serverInfo;
         m_Ui->passwordEdit->clear();
         updateQuotaLabel();
+        m_LastTunnelsSignature.clear();
         m_Client->requestTunnels();
         ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
                                QStringLiteral("登录成功"), 2000, this);
@@ -134,6 +149,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         m_Quota = QJsonObject();
         m_ServerInfo = QJsonObject();
         m_FrpsRunning = false;
+        m_LastTunnelsSignature.clear();
         if (m_FrpcManager->isRunning())
         {
             m_FrpcManager->stop();
@@ -150,8 +166,15 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         m_Tunnels = tunnels;
         m_Quota = quota;
         m_FrpsRunning = frpsRunning;
-        refreshTunnelTable();
-        updateQuotaLabel();
+        // 变化检测：数据没变就不重建表格，避免打断用户正在进行的操作
+        const QString signature = QString::fromLatin1(QJsonDocument(m_Tunnels).toJson(QJsonDocument::Compact))
+                                  + (m_FrpsRunning ? QStringLiteral("|1") : QStringLiteral("|0"));
+        if (signature != m_LastTunnelsSignature)
+        {
+            m_LastTunnelsSignature = signature;
+            refreshTunnelTable();
+            updateQuotaLabel();
+        }
         rebuildFrpcConfigIfRunning();
     });
     connect(m_Client, &PanelClient::commandSucceeded, this, [this](const QString& cmd) {
@@ -194,6 +217,17 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
 ClientTunnelPage::~ClientTunnelPage()
 {
     delete m_Ui;
+}
+
+void ClientTunnelPage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    // 每次切换到本面板时刷新一次（登录状态下拉取最新隧道）
+    if (m_Client->isLoggedIn())
+    {
+        m_LastTunnelsSignature.clear();
+        m_Client->requestTunnels();
+    }
 }
 
 void ClientTunnelPage::onLoginClicked()

@@ -24,6 +24,10 @@ public:
     explicit ServerUserPage(QWidget* parent = nullptr);
     ~ServerUserPage() override;
 
+protected:
+    // 每次切换到本面板时刷新一次
+    void showEvent(QShowEvent* event) override;
+
 private slots:
     void onRefreshDbComboBox();
     void onCreateDatabase();
@@ -34,18 +38,22 @@ private slots:
     void onAddUser();
     void onEditUser();
     void onDeleteUser();
+    void onPollRefresh();
 
 private:
     void loadSettingToUi();
     void refreshUserTable();
     void updateControlsEnabled(bool isDatabaseOpen);
     int selectedUserId() const;
+    QString stateSignature() const;
     void showConfirmDialog(const QString& title, const QString& content,
                            const QString& confirmText, std::function<void()> onConfirm);
 
     Ui::ServerUserPage* m_Ui = nullptr;
     DatabaseManager* m_DatabaseManager = nullptr;
     QStandardItemModel* m_UserModel = nullptr;
+    QTimer* m_PollTimer = nullptr;
+    QString m_LastSignature;
 };
 
 #endif // SERVERUSERPAGE_H

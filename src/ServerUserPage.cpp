@@ -3,7 +3,9 @@
 #include <QHeaderView>
 #include <QIntValidator>
 #include <QRegularExpression>
+#include <QShowEvent>
 #include <QStandardItemModel>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include "DatabaseManager.h"
@@ -72,12 +74,59 @@ ServerUserPage::ServerUserPage(QWidget* parent)
     connect(m_Ui->editUserButton, &QPushButton::clicked, this, &ServerUserPage::onEditUser);
     connect(m_Ui->deleteUserButton, &QPushButton::clicked, this, &ServerUserPage::onDeleteUser);
 
+    // 轮询刷新：5 秒一次，外部变化（如隧道页修改公网端口）无需手动刷新
+    m_PollTimer = new QTimer(this);
+    m_PollTimer->setInterval(5000);
+    connect(m_PollTimer, &QTimer::timeout, this, &ServerUserPage::onPollRefresh);
+    m_PollTimer->start();
+
     onRefreshDbComboBox();
 }
 
 ServerUserPage::~ServerUserPage()
 {
     delete m_Ui;
+}
+
+void ServerUserPage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    // 每次切换到本面板时刷新
+    m_LastSignature.clear();
+    onRefreshDbComboBox();
+    m_LastSignature = stateSignature();
+}
+
+void ServerUserPage::onPollRefresh()
+{
+    // 只有数据真正变化才重建界面，避免打断用户当前操作
+    const QString signature = stateSignature();
+    if (signature != m_LastSignature)
+    {
+        m_LastSignature = signature;
+        onRefreshDbComboBox();
+    }
+}
+
+QString ServerUserPage::stateSignature() const
+{
+    QStringList parts = m_DatabaseManager->databaseFileNames();
+    parts << QStringLiteral("|") << m_Ui->dbComboBox->currentText();
+    if (m_DatabaseManager->isOpen())
+    {
+        const QList<DatabaseManager::UserInfo> users = m_DatabaseManager->queryUsers();
+        for (const DatabaseManager::UserInfo& user : users)
+        {
+            parts << QStringLiteral("%1:%2:%3:%4")
+                         .arg(user.id)
+                         .arg(user.username)
+                         .arg(user.isEnabled ? 1 : 0)
+                         .arg(user.expireAt);
+        }
+    }
+    parts << QStringLiteral("|") << m_DatabaseManager->getSetting(QStringLiteral("public_ip"))
+          << m_DatabaseManager->getSetting(QStringLiteral("public_port"));
+    return parts.join(QLatin1Char(','));
 }
 
 void ServerUserPage::onRefreshDbComboBox()
