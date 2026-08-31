@@ -69,12 +69,15 @@ bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
         return false;
     }
     QTextStream stream(&file);
-    stream << QStringLiteral("# SimpleFrpPanel 生成的 frps 配置\n");
+    // 显式使用 UTF-8：默认本地编码（中文系统为 GBK）会让 frp 的 TOML 解析报错
+    stream.setCodec("UTF-8");
+    // 注释使用纯 ASCII，避免任何解析器对非 ASCII 字符的兼容问题
+    stream << QStringLiteral("# SimpleFrpPanel generated frps config\n");
     stream << QStringLiteral("bindPort = %1\n").arg(bindPort);
     stream << QStringLiteral("auth.token = \"%1\"\n").arg(token);
     if (!allowedPorts.isEmpty())
     {
-        stream << QStringLiteral("\n# 已登记隧道端口白名单\n");
+        stream << QStringLiteral("\n# allowed remote ports of registered tunnels\n");
         stream << QStringLiteral("allowPorts = [\n");
         for (int i = 0; i < allowedPorts.size(); ++i)
         {

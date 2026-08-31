@@ -60,6 +60,22 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
     m_Ui->topFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     m_Ui->logFrame->setFixedHeight(150);
 
+    // 顶部控件统一收窄高度，减少上方留空
+    const QList<QWidget*> topWidgets = {
+        m_Ui->dbComboBox, m_Ui->userComboBox, m_Ui->refreshButton,
+        m_Ui->frpsPathEdit, m_Ui->browseButton, m_Ui->frpsPortEdit,
+        m_Ui->frpsTokenEdit, m_Ui->startButton,
+    };
+    for (QWidget* widget : topWidgets)
+    {
+        widget->setFixedHeight(32);
+    }
+    m_Ui->topFrameLayout->setSpacing(4);
+
+    // 顶部小字号文本
+    m_Ui->frpsStatusLabel->setTextPixelSize(12);
+    m_Ui->logTitleLabel->setTextPixelSize(12);
+
     // 端口输入校验
     m_Ui->frpsPortEdit->setValidator(new QIntValidator(1, 65535, this));
 
