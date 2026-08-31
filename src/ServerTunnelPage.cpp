@@ -16,6 +16,7 @@
 #include "ElaMessageBar.h"
 #include "ElaPushButton.h"
 #include "ElaText.h"
+#include "ElaTheme.h"
 #include "ElaToggleSwitch.h"
 #include "FrpsManager.h"
 #include "PanelApiServer.h"
@@ -142,6 +143,16 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
 
     // 日志面板限制行数
     m_Ui->logTextEdit->setMaximumBlockCount(2000);
+
+    // 修复 ElaPlainTextEdit 黑夜模式背景不变色：
+    // 库内只设置 Text/PlaceholderText，未设置 QPalette::Base，这里补充背景色跟随主题
+    const auto updateLogTheme = [this](ElaThemeType::ThemeMode themeMode) {
+        QPalette palette = m_Ui->logTextEdit->palette();
+        palette.setColor(QPalette::Base, ElaThemeColor(themeMode, BasicBase));
+        m_Ui->logTextEdit->setPalette(palette);
+    };
+    updateLogTheme(eTheme->getThemeMode());
+    connect(eTheme, &ElaTheme::themeModeChanged, this, updateLogTheme);
 
     connect(m_Ui->dbComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ServerTunnelPage::onCurrentDbChanged);
