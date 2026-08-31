@@ -47,6 +47,7 @@ private:
     void updateQuotaLabel();
     void updateFrpcStatusUi();
     void rebuildFrpcConfigIfRunning();
+    QString frpcConfigSignature() const;
     void refreshTunnelTable();
     void appendLog(const QString& text);
     int selectedTunnelId() const;
@@ -62,6 +63,7 @@ private:
     bool m_PendingLogin = false;
     QTimer* m_PollTimer = nullptr;
     QString m_LastTunnelsSignature;
+    QString m_LastFrpcConfigSignature; // frpc 配置签名（未变化不重启 frpc）
 };
 
 #endif // CLIENTTUNNELPAGE_H

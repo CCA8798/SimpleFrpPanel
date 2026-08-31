@@ -458,6 +458,7 @@ void ClientTunnelPage::onToggleFrpc()
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
         return;
     }
+    m_LastFrpcConfigSignature = frpcConfigSignature();
     appendLog(QStringLiteral("[%1] frpc 已启动 (配置: %2，服务器 %3:%4)")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
                        configPath, serverAddr)
@@ -480,6 +481,15 @@ void ClientTunnelPage::rebuildFrpcConfigIfRunning()
     {
         return;
     }
+    // 配置签名未变化（轮询拉取的数据与上次一致）时绝不重启 frpc：
+    // 重启会阻塞 UI 线程（进程终止/启动等待），每 3 秒轮询一次若都重启将导致整个软件卡死
+    const QString signature = frpcConfigSignature();
+    if (signature == m_LastFrpcConfigSignature)
+    {
+        return;
+    }
+    m_LastFrpcConfigSignature = signature;
+
     const QString serverAddr = m_Ui->serverIpEdit->text().trimmed();
     const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toInt(7000);
     const QString token = m_ServerInfo.value(QStringLiteral("frpsToken")).toString();
@@ -502,6 +512,32 @@ void ClientTunnelPage::rebuildFrpcConfigIfRunning()
     }
     appendLog(QStringLiteral("[%1] frpc 配置已更新并重启")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
+}
+
+QString ClientTunnelPage::frpcConfigSignature() const
+{
+    QString signature = m_Ui->serverIpEdit->text().trimmed()
+                        + QLatin1Char('|')
+                        + m_ServerInfo.value(QStringLiteral("frpsBindPort")).toString()
+                        + QLatin1Char('|')
+                        + m_ServerInfo.value(QStringLiteral("frpsToken")).toString()
+                        + QLatin1Char('|');
+    for (const QJsonValue& value : m_Tunnels)
+    {
+        const QJsonObject tunnel = value.toObject();
+        if (!tunnel.value(QStringLiteral("enabled")).toBool())
+        {
+            continue;
+        }
+        signature += QStringLiteral("%1:%2:%3:%4:%5:%6;")
+                         .arg(tunnel.value(QStringLiteral("name")).toString())
+                         .arg(tunnel.value(QStringLiteral("protocol")).toString())
+                         .arg(tunnel.value(QStringLiteral("remotePort")).toInt())
+                         .arg(tunnel.value(QStringLiteral("localIp")).toString())
+                         .arg(tunnel.value(QStringLiteral("localPort")).toInt())
+                         .arg(tunnel.value(QStringLiteral("customDomain")).toString());
+    }
+    return signature;
 }
 
 void ClientTunnelPage::updateLoginUi()
