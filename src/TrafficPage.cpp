@@ -1,5 +1,6 @@
 #include "TrafficPage.h"
 
+#include <QApplication>
 #include <QDate>
 #include <QHeaderView>
 #include <QSet>
@@ -144,6 +145,7 @@ void TrafficPage::onCurrentDbChanged()
         m_CurrentUserId = kAllUsersId;
         m_Ui->userComboBox->clear();
         m_Ui->tunnelComboBox->clear();
+        m_LastQuerySignature.clear();
         m_TrafficModel->setRowCount(0);
         m_Ui->totalLabel->setText(QStringLiteral("总流量：-"));
         return;
@@ -160,6 +162,7 @@ void TrafficPage::onCurrentDbChanged()
         return;
     }
     refreshUserComboBox();
+    m_LastQuerySignature.clear();
     runQuery();
 }
 
@@ -169,6 +172,7 @@ void TrafficPage::onCurrentUserChanged()
                           ? m_Ui->userComboBox->currentData().toInt()
                           : kAllUsersId;
     refreshTunnelComboBox();
+    m_LastQuerySignature.clear();
     runQuery();
 }
 
@@ -232,18 +236,25 @@ void TrafficPage::onQueryClicked()
 void TrafficPage::onPollRefresh()
 {
     // 数据库打开时自动重新查询（流量记录持续入库，表格保持最新）
-    if (m_DatabaseManager->isOpen())
+    if (!m_DatabaseManager->isOpen())
     {
-        runQuery();
+        return;
     }
+    // 下拉框弹出期间（模态弹出事件循环）跳过自动刷新，避免下拉框卡顿
+    if (QApplication::activePopupWidget())
+    {
+        return;
+    }
+    runQuery();
 }
 
 void TrafficPage::runQuery()
 {
-    m_TrafficModel->setRowCount(0);
     if (!m_DatabaseManager->isOpen())
     {
+        m_TrafficModel->setRowCount(0);
         m_Ui->totalLabel->setText(QStringLiteral("总流量：-"));
+        m_LastQuerySignature.clear();
         return;
     }
 
@@ -265,65 +276,93 @@ void TrafficPage::runQuery()
         selectedTunnel.chop(QStringLiteral("（已删除）").size());
     }
 
-    auto addRow = [this](const QString& user, const QString& tunnel,
-                         qint64 bytesIn, qint64 bytesOut) {
-        const int row = m_TrafficModel->rowCount();
-        m_TrafficModel->insertRow(row);
-        QStandardItem* userItem = new QStandardItem(user);
-        userItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(row, 0, userItem);
-        QStandardItem* tunnelItem = new QStandardItem(tunnel);
-        tunnelItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(row, 1, tunnelItem);
-        QStandardItem* inItem = new QStandardItem(formatBytes(bytesIn));
-        inItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(row, 2, inItem);
-        QStandardItem* outItem = new QStandardItem(formatBytes(bytesOut));
-        outItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(row, 3, outItem);
-        QStandardItem* totalItem = new QStandardItem(formatBytes(bytesIn + bytesOut));
-        totalItem->setTextAlignment(Qt::AlignCenter);
-        m_TrafficModel->setItem(row, 4, totalItem);
+    // 第一步：查询并收集结果（不触碰界面）
+    struct Row
+    {
+        QString user;
+        QString tunnel;
+        qint64 bytesIn = 0;
+        qint64 bytesOut = 0;
     };
+    QList<Row> rows;
+    QString totalText;
 
     if (m_CurrentUserId == kAllUsersId)
     {
-        // 全部用户：按用户聚合
         const QList<DatabaseManager::TrafficSummary> summaries =
             m_DatabaseManager->queryUserTraffic(dateFrom, dateTo);
         for (const DatabaseManager::TrafficSummary& summary : summaries)
         {
-            addRow(summary.name, QStringLiteral("（全部）"), summary.bytesIn, summary.bytesOut);
+            rows.append(Row{summary.name, QStringLiteral("（全部）"),
+                            summary.bytesIn, summary.bytesOut});
         }
-        m_Ui->totalLabel->setText(
-            QStringLiteral("总流量（%1，%2 位用户）：%3")
-                .arg(rangeText)
-                .arg(summaries.size())
-                .arg(formatBytes(summaryTotal(summaries))));
+        totalText = QStringLiteral("总流量（%1，%2 位用户）：%3")
+                        .arg(rangeText)
+                        .arg(summaries.size())
+                        .arg(formatBytes(summaryTotal(summaries)));
+    }
+    else
+    {
+        const QList<DatabaseManager::TrafficSummary> summaries =
+            m_DatabaseManager->queryTunnelTraffic(m_CurrentUserId, dateFrom, dateTo);
+        const DatabaseManager::TrafficSummary userTotal =
+            m_DatabaseManager->queryUserTotalTraffic(m_CurrentUserId);
+        const QString userName = m_Ui->userComboBox->currentText();
+
+        qint64 rangeTotal = 0;
+        for (const DatabaseManager::TrafficSummary& summary : summaries)
+        {
+            if (!selectedTunnel.isEmpty() && selectedTunnel != QStringLiteral("全部隧道")
+                && summary.name != selectedTunnel)
+            {
+                continue;
+            }
+            rows.append(Row{userName, summary.name, summary.bytesIn, summary.bytesOut});
+            rangeTotal += summary.bytesIn + summary.bytesOut;
+        }
+        totalText = QStringLiteral("总流量（%1）：%2 | 历史总流量：%3")
+                        .arg(rangeText)
+                        .arg(formatBytes(rangeTotal))
+                        .arg(formatBytes(userTotal.bytesIn + userTotal.bytesOut));
+    }
+
+    // 第二步：结果签名未变化则跳过表格重建（避免轮询/下拉交互时卡顿）
+    QString signature;
+    for (const Row& row : rows)
+    {
+        signature += QStringLiteral("%1|%2|%3|%4;")
+                         .arg(row.user, row.tunnel)
+                         .arg(row.bytesIn)
+                         .arg(row.bytesOut);
+    }
+    signature += QStringLiteral("|") + totalText;
+    if (signature == m_LastQuerySignature)
+    {
         return;
     }
+    m_LastQuerySignature = signature;
 
-    // 具体用户：按隧道聚合（含已删除隧道）
-    const QList<DatabaseManager::TrafficSummary> summaries =
-        m_DatabaseManager->queryTunnelTraffic(m_CurrentUserId, dateFrom, dateTo);
-    const DatabaseManager::TrafficSummary userTotal =
-        m_DatabaseManager->queryUserTotalTraffic(m_CurrentUserId);
-    const QString userName = m_Ui->userComboBox->currentText();
-
-    qint64 rangeTotal = 0;
-    for (const DatabaseManager::TrafficSummary& summary : summaries)
+    // 第三步：重建表格
+    m_TrafficModel->setRowCount(0);
+    for (const Row& row : rows)
     {
-        if (!selectedTunnel.isEmpty() && selectedTunnel != QStringLiteral("全部隧道")
-            && summary.name != selectedTunnel)
-        {
-            continue;
-        }
-        addRow(userName, summary.name, summary.bytesIn, summary.bytesOut);
-        rangeTotal += summary.bytesIn + summary.bytesOut;
+        const int modelRow = m_TrafficModel->rowCount();
+        m_TrafficModel->insertRow(modelRow);
+        QStandardItem* userItem = new QStandardItem(row.user);
+        userItem->setTextAlignment(Qt::AlignCenter);
+        m_TrafficModel->setItem(modelRow, 0, userItem);
+        QStandardItem* tunnelItem = new QStandardItem(row.tunnel);
+        tunnelItem->setTextAlignment(Qt::AlignCenter);
+        m_TrafficModel->setItem(modelRow, 1, tunnelItem);
+        QStandardItem* inItem = new QStandardItem(formatBytes(row.bytesIn));
+        inItem->setTextAlignment(Qt::AlignCenter);
+        m_TrafficModel->setItem(modelRow, 2, inItem);
+        QStandardItem* outItem = new QStandardItem(formatBytes(row.bytesOut));
+        outItem->setTextAlignment(Qt::AlignCenter);
+        m_TrafficModel->setItem(modelRow, 3, outItem);
+        QStandardItem* totalItem = new QStandardItem(formatBytes(row.bytesIn + row.bytesOut));
+        totalItem->setTextAlignment(Qt::AlignCenter);
+        m_TrafficModel->setItem(modelRow, 4, totalItem);
     }
-    m_Ui->totalLabel->setText(
-        QStringLiteral("总流量（%1）：%2 | 历史总流量：%3")
-            .arg(rangeText)
-            .arg(formatBytes(rangeTotal))
-            .arg(formatBytes(userTotal.bytesIn + userTotal.bytesOut)));
+    m_Ui->totalLabel->setText(totalText);
 }

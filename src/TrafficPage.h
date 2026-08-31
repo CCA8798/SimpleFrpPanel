@@ -43,6 +43,7 @@ private:
     QStandardItemModel* m_TrafficModel = nullptr;
     QTimer* m_PollTimer = nullptr;
     int m_CurrentUserId = -1; // -1 = 全部用户
+    QString m_LastQuerySignature; // 上次查询结果签名（未变化则跳过表格重建）
 };
 
 #endif // TRAFFICPAGE_H
