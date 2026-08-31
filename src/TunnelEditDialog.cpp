@@ -1,9 +1,11 @@
 #include "TunnelEditDialog.h"
 
+#include <QCoreApplication>
 #include <QFont>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QIntValidator>
+#include <QSettings>
 #include <QVBoxLayout>
 
 #include "ElaCheckBox.h"
@@ -18,6 +20,15 @@ const QStringList kProtocols = QStringList()
                                << QStringLiteral("tcp") << QStringLiteral("udp")
                                << QStringLiteral("http") << QStringLiteral("https");
 
+// 新增隧道草稿快照（config.ini 的 tunnel_draft 分组）
+const QString kDraftSection = QStringLiteral("tunnel_draft");
+
+QSettings draftSettings()
+{
+    return QSettings(QCoreApplication::applicationDirPath() + QStringLiteral("/config.ini"),
+                     QSettings::IniFormat);
+}
+
 ElaText* makeCompactLabel(const QString& text, QWidget* parent)
 {
     ElaText* label = new ElaText(text, parent);
@@ -28,6 +39,7 @@ ElaText* makeCompactLabel(const QString& text, QWidget* parent)
 
 TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
     : ElaDialog(parent)
+    , m_IsEditMode(isEditMode)
 {
     setWindowTitle(isEditMode ? QStringLiteral("修改隧道") : QStringLiteral("新增隧道"));
     setWindowButtonFlags(ElaAppBarType::CloseButtonHint);
@@ -149,9 +161,36 @@ TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
         accept();
     });
 
+    // 新增模式下：还原上次填写的内容（快照）
+    bool draftRestored = false;
+    if (!isEditMode)
+    {
+        QSettings settings = draftSettings();
+        settings.beginGroup(kDraftSection);
+        if (settings.contains(QStringLiteral("name")))
+        {
+            setName(settings.value(QStringLiteral("name")).toString());
+            setProtocol(settings.value(QStringLiteral("protocol"), QStringLiteral("tcp")).toString());
+            setRemotePort(settings.value(QStringLiteral("remotePort"), 0).toInt());
+            setLocalIp(settings.value(QStringLiteral("localIp")).toString());
+            setLocalPort(settings.value(QStringLiteral("localPort"), 0).toInt());
+            setCustomDomain(settings.value(QStringLiteral("customDomain")).toString());
+            setIsEnabled(settings.value(QStringLiteral("enabled"), true).toBool());
+            setRemark(settings.value(QStringLiteral("remark")).toString());
+            draftRestored = true;
+        }
+        settings.endGroup();
+    }
+
     // 按紧凑内容锁定窗口尺寸
     adjustSize();
     setFixedSize(qMax(size().width(), 400), size().height());
+
+    if (draftRestored)
+    {
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("已还原上次未保存的内容"), 2000, this);
+    }
 }
 
 QString TunnelEditDialog::name() const
@@ -233,4 +272,46 @@ void TunnelEditDialog::setIsEnabled(bool enabled)
 void TunnelEditDialog::setRemark(const QString& remark)
 {
     m_RemarkEdit->setText(remark);
+}
+
+void TunnelEditDialog::accept()
+{
+    // 新增模式下保存快照：确定成功也保存，方便连续添加相似隧道
+    if (!m_IsEditMode)
+    {
+        saveDraft();
+    }
+    ElaDialog::accept();
+}
+
+void TunnelEditDialog::reject()
+{
+    // 新增模式下保存快照：取消（含点右上角关闭）后，下次打开可还原
+    if (!m_IsEditMode)
+    {
+        saveDraft();
+    }
+    ElaDialog::reject();
+}
+
+void TunnelEditDialog::saveDraft() const
+{
+    // 完全空白的填写不保存（避免下次打开提示"已还原"却什么都没有）
+    if (name().trimmed().isEmpty() && localIp().trimmed().isEmpty()
+        && customDomain().trimmed().isEmpty() && remark().trimmed().isEmpty()
+        && remotePort() == 0 && localPort() == 0)
+    {
+        return;
+    }
+    QSettings settings = draftSettings();
+    settings.beginGroup(kDraftSection);
+    settings.setValue(QStringLiteral("name"), name());
+    settings.setValue(QStringLiteral("protocol"), protocol());
+    settings.setValue(QStringLiteral("remotePort"), remotePort());
+    settings.setValue(QStringLiteral("localIp"), localIp());
+    settings.setValue(QStringLiteral("localPort"), localPort());
+    settings.setValue(QStringLiteral("customDomain"), customDomain());
+    settings.setValue(QStringLiteral("enabled"), isEnabled());
+    settings.setValue(QStringLiteral("remark"), remark());
+    settings.endGroup();
 }

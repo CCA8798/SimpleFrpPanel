@@ -34,7 +34,15 @@ public:
     void setIsEnabled(bool enabled);
     void setRemark(const QString& remark);
 
+protected:
+    // 新增模式下：关闭时保存填写快照（取消/确定都会保存），下次打开自动还原
+    void accept() override;
+    void reject() override;
+
 private:
+    void saveDraft() const;
+
+    bool m_IsEditMode = false;
     ElaLineEdit* m_NameEdit = nullptr;
     ElaComboBox* m_ProtocolCombo = nullptr;
     ElaLineEdit* m_RemotePortEdit = nullptr;
