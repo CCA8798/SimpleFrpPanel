@@ -5,6 +5,7 @@
 #include <QHeaderView>
 #include <QIntValidator>
 #include <QRandomGenerator>
+#include <QShowEvent>
 #include <QStandardItemModel>
 #include <QTime>
 #include <QVBoxLayout>
@@ -113,6 +114,13 @@ ServerTunnelPage::~ServerTunnelPage()
     delete m_Ui;
 }
 
+void ServerTunnelPage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    // 页面每次显示时刷新：及时感知其他页面（如用户管理）对库/用户的增删
+    onRefreshDbComboBox();
+}
+
 void ServerTunnelPage::onRefreshDbComboBox()
 {
     const QString previousName = m_Ui->dbComboBox->currentText();
@@ -200,8 +208,12 @@ void ServerTunnelPage::onRefreshUserComboBox()
 
 void ServerTunnelPage::onCurrentUserChanged()
 {
-    m_CurrentUserId = m_Ui->userComboBox->currentData().toInt();
+    // 空下拉框（无用户）时 user id 视为 -1，避免无效值 0 通过 < 0 守卫
+    m_CurrentUserId = (m_Ui->userComboBox->currentIndex() >= 0)
+                          ? m_Ui->userComboBox->currentData().toInt()
+                          : -1;
     refreshTunnelTable();
+    updateControlsEnabled();
 }
 
 void ServerTunnelPage::onSearchTunnels()
@@ -211,12 +223,32 @@ void ServerTunnelPage::onSearchTunnels()
 
 void ServerTunnelPage::onAddTunnel()
 {
-    if (m_CurrentUserId < 0)
+    if (m_CurrentUserId <= 0)
     {
         ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先选择数据库和用户"), 2000, this);
+                                   QStringLiteral("请先在用户管理中为该数据库创建用户，再选择用户添加隧道"),
+                                   2500, this);
         return;
     }
+    // 防御：用户可能已在其他页面被删除，先校验再操作
+    bool userExists = false;
+    const QList<DatabaseManager::UserInfo> users = m_DatabaseManager->queryUsers();
+    for (const DatabaseManager::UserInfo& user : users)
+    {
+        if (user.id == m_CurrentUserId)
+        {
+            userExists = true;
+            break;
+        }
+    }
+    if (!userExists)
+    {
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("所选用户已被删除，列表已刷新"), 2500, this);
+        onRefreshUserComboBox();
+        return;
+    }
+
     TunnelEditDialog dialog(false, this);
     if (dialog.exec() != QDialog::Accepted)
     {
@@ -490,7 +522,7 @@ void ServerTunnelPage::updateControlsEnabled()
     m_Ui->frpsPortEdit->setEnabled(hasDatabase);
     m_Ui->frpsTokenEdit->setEnabled(hasDatabase);
     m_Ui->startButton->setEnabled(hasDatabase);
-    const bool hasUser = m_CurrentUserId >= 0;
+    const bool hasUser = m_CurrentUserId > 0;
     m_Ui->searchLineEdit->setEnabled(hasUser);
     m_Ui->searchButton->setEnabled(hasUser);
     m_Ui->addTunnelButton->setEnabled(hasUser);

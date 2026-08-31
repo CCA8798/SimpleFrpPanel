@@ -452,7 +452,16 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
     query.addBindValue(QDateTime::currentDateTime().toString(Qt::ISODate));
     if (!query.exec())
     {
-        setError(errorMessage, query.lastError().text());
+        // 外键约束失败 = 用户不存在或已被删除，给出明确提示
+        const QString errorText = query.lastError().text();
+        if (errorText.contains(QStringLiteral("FOREIGN KEY")))
+        {
+            setError(errorMessage, QStringLiteral("用户不存在或已被删除，请刷新后重试"));
+        }
+        else
+        {
+            setError(errorMessage, errorText);
+        }
         return false;
     }
     return true;

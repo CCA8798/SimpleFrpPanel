@@ -25,6 +25,9 @@ public:
     explicit ServerTunnelPage(QWidget* parent = nullptr);
     ~ServerTunnelPage() override;
 
+protected:
+    void showEvent(QShowEvent* event) override;
+
 private slots:
     void onRefreshDbComboBox();
     void onCurrentDbChanged();
