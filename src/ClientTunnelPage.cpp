@@ -458,10 +458,11 @@ void ClientTunnelPage::onToggleFrpc()
     }
 
     // 生成 frpc.toml：服务器地址用当前连接地址，端口/token 由登录响应下发
+    // toVariant().toString()：兼容服务端下发数字或字符串两种类型，解析失败回退 7000
     const QString serverAddr = m_Ui->serverIpEdit->text().trimmed();
-    const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toInt(7000);
+    const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toVariant().toString().toInt();
     const QString token = m_ServerInfo.value(QStringLiteral("frpsToken")).toString();
-    if (serverAddr.isEmpty() || token.isEmpty())
+    if (serverAddr.isEmpty() || token.isEmpty() || serverPort <= 0 || serverPort > 65535)
     {
         ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
                              QStringLiteral("缺少 frpc 连接参数，请重新登录"), 2500, this);
@@ -519,8 +520,12 @@ void ClientTunnelPage::rebuildFrpcConfigIfRunning()
     m_LastFrpcConfigSignature = signature;
 
     const QString serverAddr = m_Ui->serverIpEdit->text().trimmed();
-    const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toInt(7000);
+    const int serverPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toVariant().toString().toInt();
     const QString token = m_ServerInfo.value(QStringLiteral("frpsToken")).toString();
+    if (serverAddr.isEmpty() || token.isEmpty() || serverPort <= 0 || serverPort > 65535)
+    {
+        return;
+    }
     const QString configPath = QCoreApplication::applicationDirPath() + QStringLiteral("/frpc.toml");
     QString errorMessage;
     if (!FrpsManager::generateFrpcConfig(configPath, serverAddr,
@@ -546,7 +551,7 @@ QString ClientTunnelPage::frpcConfigSignature() const
 {
     QString signature = m_Ui->serverIpEdit->text().trimmed()
                         + QLatin1Char('|')
-                        + m_ServerInfo.value(QStringLiteral("frpsBindPort")).toString()
+                        + m_ServerInfo.value(QStringLiteral("frpsBindPort")).toVariant().toString()
                         + QLatin1Char('|')
                         + m_ServerInfo.value(QStringLiteral("frpsToken")).toString()
                         + QLatin1Char('|');
