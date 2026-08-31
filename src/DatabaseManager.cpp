@@ -25,6 +25,14 @@ QByteArray randomBytes(int count)
     }
     return bytes.left(count);
 }
+
+// Qt SQLite 驱动会把"空 QString"绑定为 SQL NULL，而 remark/expire_at 列是 NOT NULL，
+// 因此空值必须显式转换为"非空空字符串"再绑定
+QVariant bindText(const QString& text)
+{
+    const QString trimmed = text.trimmed();
+    return QVariant(trimmed.isEmpty() ? QStringLiteral("") : trimmed);
+}
 } // namespace
 
 DatabaseManager::DatabaseManager(QObject* parent)
@@ -58,12 +66,12 @@ QString DatabaseManager::createDatabase()
         return QString();
     }
 
-    // 随机生成 SHA256 文件名（64 位十六进制），冲突则重新生成
+    // 随机生成 SHA256 文件名（截取前 10 位十六进制），冲突则重新生成
     QString fileName;
     while (true)
     {
         const QString candidate = QString::fromLatin1(
-                                      QCryptographicHash::hash(randomBytes(32), QCryptographicHash::Sha256).toHex())
+                                      QCryptographicHash::hash(randomBytes(32), QCryptographicHash::Sha256).toHex().left(10))
                                   + QStringLiteral(".db");
         if (!QFile::exists(dataDirectory() + QLatin1Char('/') + candidate))
         {
@@ -184,12 +192,12 @@ QList<DatabaseManager::UserInfo> DatabaseManager::queryUsers(const QString& keyw
     if (trimmedKeyword.isEmpty())
     {
         query.prepare(QStringLiteral(
-            "SELECT id, username, remark, is_enabled, created_at FROM users ORDER BY id"));
+            "SELECT id, username, remark, is_enabled, expire_at, created_at FROM users ORDER BY id"));
     }
     else
     {
         query.prepare(QStringLiteral(
-            "SELECT id, username, remark, is_enabled, created_at FROM users "
+            "SELECT id, username, remark, is_enabled, expire_at, created_at FROM users "
             "WHERE username LIKE ? OR remark LIKE ? ORDER BY id"));
         const QString pattern = QStringLiteral("%") + trimmedKeyword + QStringLiteral("%");
         query.addBindValue(pattern);
@@ -206,14 +214,16 @@ QList<DatabaseManager::UserInfo> DatabaseManager::queryUsers(const QString& keyw
         info.username = query.value(1).toString();
         info.remark = query.value(2).toString();
         info.isEnabled = query.value(3).toInt() != 0;
-        info.createdAt = query.value(4).toString();
+        info.expireAt = query.value(4).toString();
+        info.createdAt = query.value(5).toString();
         users.append(info);
     }
     return users;
 }
 
 bool DatabaseManager::addUser(const QString& username, const QString& password,
-                              const QString& remark, bool isEnabled, QString* errorMessage)
+                              const QString& remark, bool isEnabled, const QString& expireAt,
+                              QString* errorMessage)
 {
     const QString name = username.trimmed();
     if (name.isEmpty())
@@ -234,12 +244,13 @@ bool DatabaseManager::addUser(const QString& username, const QString& password,
 
     QSqlQuery query(QSqlDatabase::database(kConnectionName));
     query.prepare(QStringLiteral(
-        "INSERT INTO users (username, password_hash, remark, is_enabled, created_at) "
-        "VALUES (?, ?, ?, ?, ?)"));
+        "INSERT INTO users (username, password_hash, remark, is_enabled, expire_at, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)"));
     query.addBindValue(name);
     query.addBindValue(hashPassword(password));
-    query.addBindValue(remark.trimmed());
+    query.addBindValue(bindText(remark));
     query.addBindValue(isEnabled ? 1 : 0);
+    query.addBindValue(bindText(expireAt));
     query.addBindValue(QDateTime::currentDateTime().toString(Qt::ISODate));
     if (!query.exec())
     {
@@ -250,7 +261,8 @@ bool DatabaseManager::addUser(const QString& username, const QString& password,
 }
 
 bool DatabaseManager::updateUser(int id, const QString& newUsername, const QString& newPassword,
-                                 const QString& remark, bool isEnabled, QString* errorMessage)
+                                 const QString& remark, bool isEnabled, const QString& expireAt,
+                                 QString* errorMessage)
 {
     const QString name = newUsername.trimmed();
     if (name.isEmpty())
@@ -281,20 +293,22 @@ bool DatabaseManager::updateUser(int id, const QString& newUsername, const QStri
     if (newPassword.isEmpty())
     {
         query.prepare(QStringLiteral(
-            "UPDATE users SET username = ?, remark = ?, is_enabled = ? WHERE id = ?"));
+            "UPDATE users SET username = ?, remark = ?, is_enabled = ?, expire_at = ? WHERE id = ?"));
         query.addBindValue(name);
-        query.addBindValue(remark.trimmed());
+        query.addBindValue(bindText(remark));
         query.addBindValue(isEnabled ? 1 : 0);
+        query.addBindValue(bindText(expireAt));
         query.addBindValue(id);
     }
     else
     {
         query.prepare(QStringLiteral(
-            "UPDATE users SET username = ?, password_hash = ?, remark = ?, is_enabled = ? WHERE id = ?"));
+            "UPDATE users SET username = ?, password_hash = ?, remark = ?, is_enabled = ?, expire_at = ? WHERE id = ?"));
         query.addBindValue(name);
         query.addBindValue(hashPassword(newPassword));
-        query.addBindValue(remark.trimmed());
+        query.addBindValue(bindText(remark));
         query.addBindValue(isEnabled ? 1 : 0);
+        query.addBindValue(bindText(expireAt));
         query.addBindValue(id);
     }
     if (!query.exec())
@@ -372,16 +386,45 @@ bool DatabaseManager::ensureSchema(QSqlDatabase& database) const
             " password_hash TEXT NOT NULL,"
             " remark TEXT NOT NULL DEFAULT '',"
             " is_enabled INTEGER NOT NULL DEFAULT 1,"
+            " expire_at TEXT NOT NULL DEFAULT '',"
             " created_at TEXT NOT NULL"
             ")")))
     {
         return false;
     }
-    return query.exec(QStringLiteral(
-        "CREATE TABLE IF NOT EXISTS settings ("
-        " key TEXT PRIMARY KEY,"
-        " value TEXT NOT NULL"
-        ")"));
+    if (!query.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS settings ("
+            " key TEXT PRIMARY KEY,"
+            " value TEXT NOT NULL"
+            ")")))
+    {
+        return false;
+    }
+
+    // 旧库迁移：早期版本 users 表没有 expire_at 列，自动补充
+    QSqlQuery pragmaQuery(database);
+    bool hasExpireAt = false;
+    if (pragmaQuery.exec(QStringLiteral("PRAGMA table_info(users)")))
+    {
+        while (pragmaQuery.next())
+        {
+            if (pragmaQuery.value(1).toString() == QStringLiteral("expire_at"))
+            {
+                hasExpireAt = true;
+                break;
+            }
+        }
+    }
+    if (!hasExpireAt)
+    {
+        QSqlQuery alterQuery(database);
+        if (!alterQuery.exec(QStringLiteral(
+                "ALTER TABLE users ADD COLUMN expire_at TEXT NOT NULL DEFAULT ''")))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void DatabaseManager::setError(QString* errorMessage, const QString& text)

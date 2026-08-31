@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>用户管理</string>
   </property>
-  <layout class="QVBoxLayout" name="mainLayout">
+  <layout class="QVBoxLayout" name="mainLayout" stretch="1,10">
    <property name="spacing">
     <number>12</number>
    </property>
@@ -31,13 +31,10 @@
    </property>
    <item>
     <widget class="QFrame" name="dbFrame">
-     <property name="minimumHeight">
-      <number>150</number>
-     </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::Shape::NoFrame</enum>
      </property>
-     <layout class="QVBoxLayout" name="dbFrameLayout">
+     <layout class="QVBoxLayout" name="dbFrameLayout" stretch="1,1,1">
       <property name="spacing">
        <number>10</number>
       </property>
@@ -99,7 +96,7 @@
         <item>
          <spacer name="dbHeaderSpacer">
           <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+           <enum>Qt::Orientation::Horizontal</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -163,7 +160,7 @@
         <item>
          <spacer name="settingSpacer">
           <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+           <enum>Qt::Orientation::Horizontal</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -176,24 +173,70 @@
        </layout>
       </item>
       <item>
-       <widget class="QLabel" name="dbPathLabel">
-        <property name="text">
-         <string>未选择数据库</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,1,0">
+        <item>
+         <spacer name="horizontalSpacer_2">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="dbPathLabel_2">
+          <property name="text">
+           <string>当前数据库：</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="dbPathLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>800</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>未选择数据库</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
    </item>
    <item>
     <widget class="QFrame" name="userFrame">
-     <property name="minimumHeight">
-      <number>200</number>
-     </property>
      <property name="frameShape">
-      <enum>QFrame::NoFrame</enum>
+      <enum>QFrame::Shape::NoFrame</enum>
      </property>
-     <layout class="QVBoxLayout" name="userFrameLayout">
+     <layout class="QVBoxLayout" name="userFrameLayout" stretch="1,10">
       <property name="spacing">
        <number>10</number>
       </property>
@@ -255,7 +298,7 @@
         <item>
          <spacer name="userToolbarSpacer">
           <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+           <enum>Qt::Orientation::Horizontal</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>

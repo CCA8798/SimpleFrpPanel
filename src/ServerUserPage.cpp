@@ -2,11 +2,15 @@
 
 #include <QHeaderView>
 #include <QIntValidator>
-#include <QMessageBox>
 #include <QRegularExpression>
 #include <QStandardItemModel>
+#include <QVBoxLayout>
 
 #include "DatabaseManager.h"
+#include "ElaContentDialog.h"
+#include "ElaMessageBar.h"
+#include "ElaPushButton.h"
+#include "ElaText.h"
 #include "UserEditDialog.h"
 #include "ui_ServerUserPage.h"
 
@@ -31,28 +35,30 @@ ServerUserPage::ServerUserPage(QWidget* parent)
 {
     m_Ui->setupUi(this);
 
-    // 布局占比：数据库区 30% / 用户区 70%
-    m_Ui->mainLayout->setStretch(0, 3);
-    m_Ui->mainLayout->setStretch(1, 7);
+    // 布局：上部（数据库部分）固定高度、紧凑，不随窗口拉伸；
+    // 下部（用户部分）随窗口尺寸自动扩展（其余空间全部归下部）
+    m_Ui->dbFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
     // 端口输入校验
     m_Ui->portLineEdit->setValidator(new QIntValidator(1, 65535, this));
 
-    // 用户表模型：ID / 用户名 / 备注 / 状态 / 创建时间
+    // 用户表模型：ID / 用户名 / 备注 / 状态 / 到期时间 / 创建时间
     m_UserModel->setHorizontalHeaderLabels(
         QStringList() << QStringLiteral("ID") << QStringLiteral("用户名")
                       << QStringLiteral("备注") << QStringLiteral("状态")
-                      << QStringLiteral("创建时间"));
+                      << QStringLiteral("到期时间") << QStringLiteral("创建时间"));
     m_Ui->userTableView->setModel(m_UserModel);
     m_Ui->userTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_Ui->userTableView->setSelectionMode(QAbstractItemView::SingleSelection);
     m_Ui->userTableView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_Ui->userTableView->verticalHeader()->setVisible(false);
+    m_Ui->userTableView->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter);
     m_Ui->userTableView->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     m_Ui->userTableView->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_Ui->userTableView->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_Ui->userTableView->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
     m_Ui->userTableView->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    m_Ui->userTableView->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
 
     connect(m_Ui->newDbButton, &QPushButton::clicked, this, &ServerUserPage::onCreateDatabase);
     connect(m_Ui->deleteDbButton, &QPushButton::clicked, this, &ServerUserPage::onDeleteDatabase);
@@ -91,11 +97,14 @@ void ServerUserPage::onCreateDatabase()
     const QString fileName = m_DatabaseManager->createDatabase();
     if (fileName.isEmpty())
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("新建数据库失败"));
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             QStringLiteral("新建数据库失败"), 2000, this);
         return;
     }
     onRefreshDbComboBox();
     m_Ui->dbComboBox->setCurrentText(fileName);
+    ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                           QStringLiteral("已创建数据库文件 %1").arg(fileName), 2000, this);
 }
 
 void ServerUserPage::onDeleteDatabase()
@@ -103,22 +112,25 @@ void ServerUserPage::onDeleteDatabase()
     const QString fileName = m_Ui->dbComboBox->currentText();
     if (fileName.isEmpty())
     {
-        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请先选择要删除的数据库文件"));
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("请先选择要删除的数据库文件"), 2000, this);
         return;
     }
-    const QMessageBox::StandardButton result = QMessageBox::question(
-        this, QStringLiteral("确认删除"),
-        QStringLiteral("确定要删除数据库文件 %1 吗？\n该文件中的所有用户数据将不可恢复。").arg(fileName));
-    if (result != QMessageBox::Yes)
-    {
-        return;
-    }
-    if (!m_DatabaseManager->deleteDatabase(fileName))
-    {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("删除数据库文件失败"));
-        return;
-    }
-    onRefreshDbComboBox();
+    showConfirmDialog(
+        QStringLiteral("确认删除"),
+        QStringLiteral("确定要删除数据库文件 %1 吗？\n该文件中的所有用户数据将不可恢复。").arg(fileName),
+        QStringLiteral("删除"),
+        [this, fileName]() {
+            if (!m_DatabaseManager->deleteDatabase(fileName))
+            {
+                ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                     QStringLiteral("删除数据库文件失败"), 2000, this);
+                return;
+            }
+            onRefreshDbComboBox();
+            ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("数据库文件已删除"), 2000, this);
+        });
 }
 
 void ServerUserPage::onCurrentDbChanged()
@@ -136,8 +148,8 @@ void ServerUserPage::onCurrentDbChanged()
 
     if (m_DatabaseManager->currentDatabaseName() != fileName && !m_DatabaseManager->openDatabase(fileName))
     {
-        QMessageBox::warning(this, QStringLiteral("提示"),
-                             QStringLiteral("打开数据库 %1 失败").arg(fileName));
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             QStringLiteral("打开数据库 %1 失败").arg(fileName), 2000, this);
         m_Ui->dbComboBox->blockSignals(true);
         m_Ui->dbComboBox->removeItem(m_Ui->dbComboBox->currentIndex());
         m_Ui->dbComboBox->blockSignals(false);
@@ -156,7 +168,8 @@ void ServerUserPage::onSaveSetting()
     const QString fileName = m_Ui->dbComboBox->currentText();
     if (fileName.isEmpty())
     {
-        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请先选择数据库文件"));
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("请先选择数据库文件"), 2000, this);
         return;
     }
 
@@ -165,26 +178,29 @@ void ServerUserPage::onSaveSetting()
 
     if (!isValidIpv4(ip))
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("请输入合法的 IPv4 地址"));
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("请输入合法的 IPv4 地址"), 2000, this);
         return;
     }
     bool portOk = false;
     const int portValue = port.toInt(&portOk);
     if (!portOk || portValue < 1 || portValue > 65535)
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("端口必须是 1-65535 的整数"));
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("端口必须是 1-65535 的整数"), 2000, this);
         return;
     }
 
     if (!m_DatabaseManager->setSetting(kSettingPublicIp, ip)
         || !m_DatabaseManager->setSetting(kSettingPublicPort, port))
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("保存设置失败"));
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             QStringLiteral("保存设置失败"), 2000, this);
         return;
     }
-    QMessageBox::information(
-        this, QStringLiteral("提示"),
-        QStringLiteral("已保存：客户端登录需填写公网地址 %1:%2").arg(ip, port));
+    ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                           QStringLiteral("已保存：客户端登录需填写公网地址 %1:%2").arg(ip, port),
+                           2500, this);
 }
 
 void ServerUserPage::onSearchUsers()
@@ -201,12 +217,15 @@ void ServerUserPage::onAddUser()
     }
     QString errorMessage;
     if (!m_DatabaseManager->addUser(dialog.username(), dialog.password(), dialog.remark(),
-                                    dialog.isEnabled(), &errorMessage))
+                                    dialog.isEnabled(), dialog.expireAt(), &errorMessage))
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), errorMessage);
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             errorMessage, 2500, this);
         return;
     }
     refreshUserTable();
+    ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                           QStringLiteral("用户已添加"), 2000, this);
 }
 
 void ServerUserPage::onEditUser()
@@ -214,7 +233,8 @@ void ServerUserPage::onEditUser()
     const int id = selectedUserId();
     if (id < 0)
     {
-        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请先在列表中选择要修改的用户"));
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("请先在列表中选择要修改的用户"), 2000, this);
         return;
     }
 
@@ -230,7 +250,8 @@ void ServerUserPage::onEditUser()
     }
     if (!target)
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("未找到该用户"));
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                               QStringLiteral("未找到该用户"), 2000, this);
         return;
     }
 
@@ -238,6 +259,7 @@ void ServerUserPage::onEditUser()
     dialog.setUsername(target->username);
     dialog.setRemark(target->remark);
     dialog.setIsEnabled(target->isEnabled);
+    dialog.setExpireAt(target->expireAt);
     if (dialog.exec() != QDialog::Accepted)
     {
         return;
@@ -245,12 +267,15 @@ void ServerUserPage::onEditUser()
 
     QString errorMessage;
     if (!m_DatabaseManager->updateUser(id, dialog.username(), dialog.password(), dialog.remark(),
-                                       dialog.isEnabled(), &errorMessage))
+                                       dialog.isEnabled(), dialog.expireAt(), &errorMessage))
     {
-        QMessageBox::warning(this, QStringLiteral("提示"), errorMessage);
+        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                             errorMessage, 2500, this);
         return;
     }
     refreshUserTable();
+    ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                           QStringLiteral("用户已更新"), 2000, this);
 }
 
 void ServerUserPage::onDeleteUser()
@@ -258,21 +283,25 @@ void ServerUserPage::onDeleteUser()
     const int id = selectedUserId();
     if (id < 0)
     {
-        QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("请先在列表中选择要删除的用户"));
+        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("请先在列表中选择要删除的用户"), 2000, this);
         return;
     }
-    const QMessageBox::StandardButton result = QMessageBox::question(
-        this, QStringLiteral("确认删除"), QStringLiteral("确定要删除该用户吗？"));
-    if (result != QMessageBox::Yes)
-    {
-        return;
-    }
-    if (!m_DatabaseManager->deleteUser(id))
-    {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("删除用户失败"));
-        return;
-    }
-    refreshUserTable();
+    showConfirmDialog(
+        QStringLiteral("确认删除"),
+        QStringLiteral("确定要删除该用户吗？"),
+        QStringLiteral("删除"),
+        [this, id]() {
+            if (!m_DatabaseManager->deleteUser(id))
+            {
+                ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                     QStringLiteral("删除用户失败"), 2000, this);
+                return;
+            }
+            refreshUserTable();
+            ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+                                   QStringLiteral("用户已删除"), 2000, this);
+        });
 }
 
 void ServerUserPage::loadSettingToUi()
@@ -296,17 +325,28 @@ void ServerUserPage::refreshUserTable()
         idItem->setTextAlignment(Qt::AlignCenter);
         m_UserModel->setItem(row, 0, idItem);
 
-        m_UserModel->setItem(row, 1, new QStandardItem(user.username));
-        m_UserModel->setItem(row, 2, new QStandardItem(user.remark));
+        QStandardItem* usernameItem = new QStandardItem(user.username);
+        usernameItem->setTextAlignment(Qt::AlignCenter);
+        m_UserModel->setItem(row, 1, usernameItem);
+
+        QStandardItem* remarkItem = new QStandardItem(user.remark);
+        remarkItem->setTextAlignment(Qt::AlignCenter);
+        m_UserModel->setItem(row, 2, remarkItem);
 
         QStandardItem* statusItem = new QStandardItem(user.isEnabled ? QStringLiteral("启用")
                                                                      : QStringLiteral("禁用"));
         statusItem->setTextAlignment(Qt::AlignCenter);
         m_UserModel->setItem(row, 3, statusItem);
 
+        QStandardItem* expireItem = new QStandardItem(user.expireAt.isEmpty()
+                                                          ? QStringLiteral("永不")
+                                                          : user.expireAt);
+        expireItem->setTextAlignment(Qt::AlignCenter);
+        m_UserModel->setItem(row, 4, expireItem);
+
         QStandardItem* timeItem = new QStandardItem(user.createdAt);
         timeItem->setTextAlignment(Qt::AlignCenter);
-        m_UserModel->setItem(row, 4, timeItem);
+        m_UserModel->setItem(row, 5, timeItem);
     }
 }
 
@@ -332,4 +372,48 @@ int ServerUserPage::selectedUserId() const
     const QModelIndex index = selectedRows.first();
     const QStandardItem* item = m_UserModel->item(index.row(), 0);
     return item ? item->data(Qt::UserRole).toInt() : -1;
+}
+
+void ServerUserPage::showConfirmDialog(const QString& title, const QString& content,
+                                       const QString& confirmText, std::function<void()> onConfirm)
+{
+    ElaContentDialog* dialog = new ElaContentDialog(this);
+    dialog->setLeftButtonText(QStringLiteral("取消"));
+    dialog->setMiddleButtonText(QString());
+    dialog->setRightButtonText(confirmText);
+
+    QWidget* centralWidget = new QWidget(dialog);
+    QVBoxLayout* centralLayout = new QVBoxLayout(centralWidget);
+    centralLayout->setContentsMargins(15, 25, 15, 10);
+    ElaText* titleText = new ElaText(title, centralWidget);
+    titleText->setTextStyle(ElaTextType::Title);
+    ElaText* contentText = new ElaText(content, centralWidget);
+    contentText->setTextStyle(ElaTextType::Body);
+    contentText->setWordWrap(true);
+    centralLayout->addWidget(titleText);
+    centralLayout->addSpacing(2);
+    centralLayout->addWidget(contentText);
+    centralLayout->addStretch();
+    dialog->setCentralWidget(centralWidget);
+
+    // 隐藏未使用的空文本按钮（中间按钮）
+    const QList<ElaPushButton*> buttons = dialog->findChildren<ElaPushButton*>();
+    for (ElaPushButton* button : buttons)
+    {
+        if (button->text().isEmpty())
+        {
+            button->setVisible(false);
+        }
+    }
+
+    connect(dialog, &ElaContentDialog::leftButtonClicked, dialog, &ElaContentDialog::close);
+    connect(dialog, &ElaContentDialog::rightButtonClicked, this, [dialog, onConfirm]() {
+        // 右按钮点击后 ElaContentDialog 会自动执行关闭动画
+        if (onConfirm)
+        {
+            onConfirm();
+        }
+    });
+    dialog->exec();
+    dialog->deleteLater();
 }

@@ -8,7 +8,7 @@
 class QSqlDatabase;
 
 // 账号数据库管理器：
-// - 数据库文件存放在 <程序运行目录>/data 下，文件名是随机生成的 SHA256（64 位十六进制）
+// - 数据库文件存放在 <程序运行目录>/data 下，文件名是随机 SHA256 截取前 10 位（十六进制）
 // - 每个 .db 包含 users 表（账号）与 settings 表（键值设置，如绑定的公网 IP/端口）
 // - 同一时刻只打开一个数据库，即"当前数据库"
 class DatabaseManager : public QObject
@@ -22,6 +22,7 @@ public:
         QString username;
         QString remark;
         QString createdAt;
+        QString expireAt; // "yyyy-MM-dd"，空串表示永不过期
         bool isEnabled = true;
     };
 
@@ -45,9 +46,10 @@ public:
     // ---- 用户 CRUD（当前数据库）----
     QList<UserInfo> queryUsers(const QString& keyword = QString()) const;
     bool addUser(const QString& username, const QString& password, const QString& remark,
-                 bool isEnabled, QString* errorMessage = nullptr);
+                 bool isEnabled, const QString& expireAt, QString* errorMessage = nullptr);
     bool updateUser(int id, const QString& newUsername, const QString& newPassword,
-                    const QString& remark, bool isEnabled, QString* errorMessage = nullptr);
+                    const QString& remark, bool isEnabled, const QString& expireAt,
+                    QString* errorMessage = nullptr);
     bool deleteUser(int id);
     bool userExists(const QString& username) const;
 
