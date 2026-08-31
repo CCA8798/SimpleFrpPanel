@@ -26,6 +26,21 @@ public:
         bool isEnabled = true;
     };
 
+    struct TunnelInfo
+    {
+        int id = 0;
+        int userId = 0;
+        QString name;
+        QString protocol; // tcp / udp / http / https
+        int remotePort = 0;
+        QString localIp;
+        int localPort = 0;
+        QString customDomain; // http/https 使用
+        bool isEnabled = true;
+        QString remark;
+        QString createdAt;
+    };
+
     explicit DatabaseManager(QObject* parent = nullptr);
     ~DatabaseManager() override;
 
@@ -52,6 +67,18 @@ public:
                     QString* errorMessage = nullptr);
     bool deleteUser(int id);
     bool userExists(const QString& username) const;
+
+    // ---- 隧道 CRUD（当前数据库）----
+    QList<TunnelInfo> queryTunnels(int userId, const QString& keyword = QString()) const;
+    bool addTunnel(int userId, const QString& name, const QString& protocol, int remotePort,
+                   const QString& localIp, int localPort, const QString& customDomain,
+                   bool isEnabled, const QString& remark, QString* errorMessage = nullptr);
+    bool updateTunnel(int id, const QString& name, const QString& protocol, int remotePort,
+                      const QString& localIp, int localPort, const QString& customDomain,
+                      bool isEnabled, const QString& remark, QString* errorMessage = nullptr);
+    bool deleteTunnel(int id);
+    bool setTunnelEnabled(int id, bool isEnabled);
+    bool tunnelNameExists(int userId, const QString& name, int excludeId = -1) const;
 
     // ---- 工具 ----
     static QString hashPassword(const QString& password); // 加盐 SHA-256，格式 "盐:摘要"

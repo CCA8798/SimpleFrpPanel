@@ -22,18 +22,27 @@ SimpleFrpPanel/
 └── src/                        # 项目源码（.h / .cpp / .ui）
     ├── main.cpp                # 入口：QApplication + eApp->init()
     ├── MainWindow.h/.cpp       # 主窗口：MainWindow : ElaWindow（导航框架）
-    ├── DatabaseManager.h/.cpp  # 账号数据库管理（data/*.db：SHA256 文件名 + users/settings 表）
+    ├── DatabaseManager.h/.cpp  # 账号数据库管理（data/*.db：SHA256 文件名 + users/settings/tunnels 表）
     ├── UserEditDialog.h/.cpp   # 新增/修改用户对话框
+    ├── FrpsManager.h/.cpp      # frps 进程管理（配置生成 / 启停 / 日志转发）
+    ├── TunnelEditDialog.h/.cpp # 新增/修改隧道对话框
     ├── HomePage.h/.cpp/.ui     # 首页
-    ├── ServerTunnelPage.h/.cpp/.ui  # 服务端 · 隧道管理
+    ├── ServerTunnelPage.h/.cpp/.ui  # 服务端 · 隧道管理（库/用户联动 + 隧道 CRUD + frps 控制 + 日志）
     ├── ServerUserPage.h/.cpp/.ui    # 服务端 · 用户管理（db 文件管理 + 用户 CRUD + 公网 IP/端口设置）
     └── ClientTunnelPage.h/.cpp/.ui   # 客户端 · 隧道管理
 ```
 
 > 账号数据库文件存放在 **`<程序运行目录>/data`** 下（运行时生成，已加入 .gitignore），
-> 每个文件以随机 SHA256（64 位十六进制）命名，内含 `users` 表（用户名/加盐密码摘要/
-> 备注/启用状态/创建时间）与 `settings` 表（键值设置：`public_ip`、`public_port`）。
+> 每个文件以随机 SHA256 前 10 位十六进制命名，内含 `users` 表（用户名/加盐密码摘要/
+> 备注/启用状态/到期时间/创建时间）、`tunnels` 表（每个用户的隧道：名称/协议 tcp|udp|http|https/
+> 远端端口/目标 IP/目标端口/自定义域名/启用状态/备注，删除用户时级联删除）与 `settings` 表
+> （键值设置：`public_ip`、`public_port`、`frps_bind_port`、`frps_token`）。
 > 构建依赖 Qt 的 **Sql** 模块（QSQLITE 驱动由 windeployqt 自动部署）。
+
+> **frps 集成**：服务端隧道页可选择本机 `frps.exe` 并启动/停止，面板自动生成
+> `data/<库名>.frps.toml`（bindPort + auth.token + 已启用隧道远端端口白名单 allowPorts），
+> 隧道增删改或行内开关后若 frps 在运行会自动热重启；运行日志实时显示在页面底部。
+> frps.exe 路径持久化在程序目录 `config.ini`（QSettings）。
 
 ## 架构说明（Ela 主窗口 + ui 页面）
 

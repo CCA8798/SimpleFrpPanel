@@ -343,6 +343,241 @@ bool DatabaseManager::userExists(const QString& username) const
     return query.exec() && query.next();
 }
 
+QList<DatabaseManager::TunnelInfo> DatabaseManager::queryTunnels(int userId, const QString& keyword) const
+{
+    QList<TunnelInfo> tunnels;
+    if (!isOpen())
+    {
+        return tunnels;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    const QString trimmedKeyword = keyword.trimmed();
+    if (trimmedKeyword.isEmpty())
+    {
+        query.prepare(QStringLiteral(
+            "SELECT id, user_id, name, protocol, remote_port, local_ip, local_port,"
+            " custom_domain, is_enabled, remark, created_at FROM tunnels WHERE user_id = ? ORDER BY id"));
+        query.addBindValue(userId);
+    }
+    else
+    {
+        query.prepare(QStringLiteral(
+            "SELECT id, user_id, name, protocol, remote_port, local_ip, local_port,"
+            " custom_domain, is_enabled, remark, created_at FROM tunnels"
+            " WHERE user_id = ? AND (name LIKE ? OR remark LIKE ? OR local_ip LIKE ?"
+            " OR custom_domain LIKE ?) ORDER BY id"));
+        const QString pattern = QStringLiteral("%") + trimmedKeyword + QStringLiteral("%");
+        query.addBindValue(userId);
+        query.addBindValue(pattern);
+        query.addBindValue(pattern);
+        query.addBindValue(pattern);
+        query.addBindValue(pattern);
+    }
+    if (!query.exec())
+    {
+        return tunnels;
+    }
+    while (query.next())
+    {
+        TunnelInfo info;
+        info.id = query.value(0).toInt();
+        info.userId = query.value(1).toInt();
+        info.name = query.value(2).toString();
+        info.protocol = query.value(3).toString();
+        info.remotePort = query.value(4).toInt();
+        info.localIp = query.value(5).toString();
+        info.localPort = query.value(6).toInt();
+        info.customDomain = query.value(7).toString();
+        info.isEnabled = query.value(8).toInt() != 0;
+        info.remark = query.value(9).toString();
+        info.createdAt = query.value(10).toString();
+        tunnels.append(info);
+    }
+    return tunnels;
+}
+
+bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& protocol,
+                                int remotePort, const QString& localIp, int localPort,
+                                const QString& customDomain, bool isEnabled,
+                                const QString& remark, QString* errorMessage)
+{
+    if (!isOpen())
+    {
+        setError(errorMessage, QStringLiteral("未打开数据库"));
+        return false;
+    }
+    const QString tunnelName = name.trimmed();
+    if (tunnelName.isEmpty())
+    {
+        setError(errorMessage, QStringLiteral("隧道名称不能为空"));
+        return false;
+    }
+    if (tunnelNameExists(userId, tunnelName))
+    {
+        setError(errorMessage, QStringLiteral("该用户下已存在同名隧道"));
+        return false;
+    }
+    const QString tunnelProtocol = protocol.trimmed().isEmpty() ? QStringLiteral("tcp") : protocol.trimmed();
+    const bool isHttpLike = (tunnelProtocol == QStringLiteral("http")
+                             || tunnelProtocol == QStringLiteral("https"));
+    if (!isHttpLike && (remotePort < 1 || remotePort > 65535))
+    {
+        setError(errorMessage, QStringLiteral("远端端口必须是 1-65535 的整数"));
+        return false;
+    }
+    if (localPort < 1 || localPort > 65535)
+    {
+        setError(errorMessage, QStringLiteral("目标端口必须是 1-65535 的整数"));
+        return false;
+    }
+    if (localIp.trimmed().isEmpty())
+    {
+        setError(errorMessage, QStringLiteral("目标内网 IP 不能为空"));
+        return false;
+    }
+
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "INSERT INTO tunnels (user_id, name, protocol, remote_port, local_ip, local_port,"
+        " custom_domain, is_enabled, remark, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+    query.addBindValue(userId);
+    query.addBindValue(tunnelName);
+    query.addBindValue(tunnelProtocol);
+    query.addBindValue(remotePort);
+    query.addBindValue(bindText(localIp));
+    query.addBindValue(localPort);
+    query.addBindValue(bindText(customDomain));
+    query.addBindValue(isEnabled ? 1 : 0);
+    query.addBindValue(bindText(remark));
+    query.addBindValue(QDateTime::currentDateTime().toString(Qt::ISODate));
+    if (!query.exec())
+    {
+        setError(errorMessage, query.lastError().text());
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& protocol,
+                                   int remotePort, const QString& localIp, int localPort,
+                                   const QString& customDomain, bool isEnabled,
+                                   const QString& remark, QString* errorMessage)
+{
+    if (!isOpen())
+    {
+        setError(errorMessage, QStringLiteral("未打开数据库"));
+        return false;
+    }
+    const QString tunnelName = name.trimmed();
+    if (tunnelName.isEmpty())
+    {
+        setError(errorMessage, QStringLiteral("隧道名称不能为空"));
+        return false;
+    }
+    const QString tunnelProtocol = protocol.trimmed().isEmpty() ? QStringLiteral("tcp") : protocol.trimmed();
+    const bool isHttpLike = (tunnelProtocol == QStringLiteral("http")
+                             || tunnelProtocol == QStringLiteral("https"));
+    if (!isHttpLike && (remotePort < 1 || remotePort > 65535))
+    {
+        setError(errorMessage, QStringLiteral("远端端口必须是 1-65535 的整数"));
+        return false;
+    }
+    if (localPort < 1 || localPort > 65535)
+    {
+        setError(errorMessage, QStringLiteral("目标端口必须是 1-65535 的整数"));
+        return false;
+    }
+    if (localIp.trimmed().isEmpty())
+    {
+        setError(errorMessage, QStringLiteral("目标内网 IP 不能为空"));
+        return false;
+    }
+
+    // 同用户重名检查（排除自身）
+    {
+        QSqlQuery checkQuery(QSqlDatabase::database(kConnectionName));
+        checkQuery.prepare(QStringLiteral(
+            "SELECT 1 FROM tunnels WHERE user_id = (SELECT user_id FROM tunnels WHERE id = ?) AND name = ? AND id != ?"));
+        checkQuery.addBindValue(id);
+        checkQuery.addBindValue(tunnelName);
+        checkQuery.addBindValue(id);
+        if (checkQuery.exec() && checkQuery.next())
+        {
+            setError(errorMessage, QStringLiteral("该用户下已存在同名隧道"));
+            return false;
+        }
+    }
+
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral(
+        "UPDATE tunnels SET name = ?, protocol = ?, remote_port = ?, local_ip = ?,"
+        " local_port = ?, custom_domain = ?, is_enabled = ?, remark = ? WHERE id = ?"));
+    query.addBindValue(tunnelName);
+    query.addBindValue(tunnelProtocol);
+    query.addBindValue(remotePort);
+    query.addBindValue(bindText(localIp));
+    query.addBindValue(localPort);
+    query.addBindValue(bindText(customDomain));
+    query.addBindValue(isEnabled ? 1 : 0);
+    query.addBindValue(bindText(remark));
+    query.addBindValue(id);
+    if (!query.exec())
+    {
+        setError(errorMessage, query.lastError().text());
+        return false;
+    }
+    return true;
+}
+
+bool DatabaseManager::deleteTunnel(int id)
+{
+    if (!isOpen())
+    {
+        return false;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral("DELETE FROM tunnels WHERE id = ?"));
+    query.addBindValue(id);
+    return query.exec();
+}
+
+bool DatabaseManager::setTunnelEnabled(int id, bool isEnabled)
+{
+    if (!isOpen())
+    {
+        return false;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    query.prepare(QStringLiteral("UPDATE tunnels SET is_enabled = ? WHERE id = ?"));
+    query.addBindValue(isEnabled ? 1 : 0);
+    query.addBindValue(id);
+    return query.exec();
+}
+
+bool DatabaseManager::tunnelNameExists(int userId, const QString& name, int excludeId) const
+{
+    if (!isOpen())
+    {
+        return false;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (excludeId < 0)
+    {
+        query.prepare(QStringLiteral("SELECT 1 FROM tunnels WHERE user_id = ? AND name = ?"));
+        query.addBindValue(userId);
+        query.addBindValue(name.trimmed());
+    }
+    else
+    {
+        query.prepare(QStringLiteral(
+            "SELECT 1 FROM tunnels WHERE user_id = ? AND name = ? AND id != ?"));
+        query.addBindValue(userId);
+        query.addBindValue(name.trimmed());
+        query.addBindValue(excludeId);
+    }
+    return query.exec() && query.next();
+}
+
 QString DatabaseManager::hashPassword(const QString& password)
 {
     const QByteArray salt = randomBytes(16);
@@ -363,6 +598,8 @@ bool DatabaseManager::openConnection(const QString& fileName)
         QSqlDatabase::removeDatabase(kConnectionName);
         return false;
     }
+    // 启用外键约束：删除用户时级联删除其隧道
+    database.exec(QStringLiteral("PRAGMA foreign_keys = ON"));
     return true;
 }
 
@@ -424,7 +661,28 @@ bool DatabaseManager::ensureSchema(QSqlDatabase& database) const
             return false;
         }
     }
-    return true;
+
+    // 隧道表（服务端隧道管理）
+    if (!query.exec(QStringLiteral(
+            "CREATE TABLE IF NOT EXISTS tunnels ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " user_id INTEGER NOT NULL,"
+            " name TEXT NOT NULL,"
+            " protocol TEXT NOT NULL DEFAULT 'tcp',"
+            " remote_port INTEGER NOT NULL DEFAULT 0,"
+            " local_ip TEXT NOT NULL DEFAULT '',"
+            " local_port INTEGER NOT NULL DEFAULT 0,"
+            " custom_domain TEXT NOT NULL DEFAULT '',"
+            " is_enabled INTEGER NOT NULL DEFAULT 1,"
+            " remark TEXT NOT NULL DEFAULT '',"
+            " created_at TEXT NOT NULL,"
+            " FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE"
+            ")")))
+    {
+        return false;
+    }
+    return query.exec(QStringLiteral(
+        "CREATE INDEX IF NOT EXISTS idx_tunnels_user ON tunnels(user_id)"));
 }
 
 void DatabaseManager::setError(QString* errorMessage, const QString& text)
