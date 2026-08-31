@@ -82,6 +82,7 @@ ServerTunnelPage::ServerTunnelPage(QWidget* parent)
 
     // 流量监控：从 frps 仪表盘 API 采样，写入流量记录表
     m_TrafficMonitor = new TrafficMonitor(m_DatabaseManager, this);
+    connect(m_TrafficMonitor, &TrafficMonitor::logMessage, this, &ServerTunnelPage::appendLog);
 
     // 布局：顶部固定紧凑，中部自动扩展，日志区固定高度
     m_Ui->topFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);

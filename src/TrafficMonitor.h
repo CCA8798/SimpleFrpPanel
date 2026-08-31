@@ -23,6 +23,9 @@ public:
     void poll();           // 立即采样一轮
     void clearBaselines(); // 数据库切换/隧道变化时重置采样基准
 
+Q_SIGNALS:
+    void logMessage(const QString& text);
+
 private:
     struct Sample
     {
@@ -38,6 +41,8 @@ private:
     QTimer* m_Timer = nullptr;
     // tunnelId -> 上次采样值（用于计算增量；frps 重启/计数器归零时增量钳制为 0）
     QHash<int, Sample> m_LastSamples;
+    bool m_HasLoggedSuccess = false;
+    qint64 m_LastErrorLogTime = 0;
 };
 
 #endif // TRAFFICMONITOR_H
