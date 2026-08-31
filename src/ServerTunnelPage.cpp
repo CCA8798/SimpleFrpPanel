@@ -991,6 +991,10 @@ void ServerTunnelPage::applyFrpsConfig(bool restartIfRunning)
     {
         return;
     }
+    // 同步写入数据库：保证客户端登录时下发的 frpsBindPort 与实际运行端口永远一致，
+    // 避免"frps 已按 UI 端口运行、数据库仍是旧值"导致 frpc 连错端口
+    m_DatabaseManager->setSetting(kSettingFrpsBindPort, bindPort);
+    m_DatabaseManager->setSetting(kSettingFrpsToken, token);
 
     // 仪表盘（流量监控数据源）：端口优先取界面输入，账号/密码首次自动生成
     QString webPort = m_Ui->webPortEdit->text().trimmed();

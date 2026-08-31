@@ -142,9 +142,16 @@ void TrafficMonitor::onReplyFinished(QNetworkReply* reply)
         if (now - m_LastErrorLogTime > 60000)
         {
             m_LastErrorLogTime = now;
-            emit logMessage(QStringLiteral("[%1] 流量采样失败（frps 未运行或仪表盘未启用/端口不符）: %2")
+            // 区分两类失败：HTTP 404 = frps 正常但隧道未注册（frpc 未连接/未启用）；
+            // 其余 = frps 未运行或仪表盘配置问题，便于快速定位
+            const int httpStatus =
+                reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const QString hint = (httpStatus == 404)
+                                     ? QStringLiteral("隧道未建立（frpc 未连接或隧道未启用）")
+                                     : QStringLiteral("frps 未运行或仪表盘未启用/端口不符");
+            emit logMessage(QStringLiteral("[%1] 流量采样失败（%2）: %3")
                                 .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
-                                     reply->errorString()));
+                                     hint, reply->errorString()));
         }
         return;
     }
