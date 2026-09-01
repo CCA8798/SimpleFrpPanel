@@ -70,11 +70,11 @@
 git clone --recursive https://github.com/CCA8798/SimpleFrpPanel.git
 cd SimpleFrpPanel
 
-# 2. 配置（按你的实际 Qt 路径调整 QT_SDK_DIR）
-$env:PATH = "F:\Software\Qt5\Qt5.14.2\Tools\mingw730_64\bin;" +
-            "F:\Software\Qt5\Qt5.14.2\5.14.2\mingw73_64\bin;" + $env:PATH
+# 2. 配置（把 <QT_INSTALL> 替换为你本机的 Qt 安装根目录，见下方"如何找到 Qt 路径"）
+$env:PATH = "<QT_INSTALL>\Tools\mingw730_64\bin;" +
+            "<QT_INSTALL>\5.14.2\mingw73_64\bin;" + $env:PATH
 cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release `
-      -DQT_SDK_DIR=F:/Software/Qt5/Qt5.14.2/5.14.2/mingw73_64
+      -DQT_SDK_DIR=<QT_INSTALL>/5.14.2/mingw73_64
 
 # 3. 编译（完成后自动 windeployqt 部署运行库到 exe 目录）
 cmake --build build -j
@@ -82,6 +82,17 @@ cmake --build build -j
 # 4. 运行
 build/SimpleFrpPanel.exe
 ```
+
+**如何找到 Qt 路径**：安装 Qt 时安装器会让你选择安装目录（默认形如 `C:\Qt\Qt5.14.2`），
+它就是 `<QT_INSTALL>`。安装完成后该目录下应同时存在两类子目录：
+
+- `<QT_INSTALL>\5.14.2\mingw73_64\` —— **Qt 套件根目录**（`QT_SDK_DIR` 指向这里，内含 `bin\qmake.exe`）
+- `<QT_INSTALL>\Tools\mingw730_64\` —— 安装 Qt 时勾选的**配套 MinGW 工具链**（内含 `bin\gcc.exe`）
+
+如果安装时没勾选 MinGW 工具链，请重新运行安装器补装（组件列表选择对应版本的
+"MinGW 7.3.0 64-bit"）。不确定路径时，也可直接使用开始菜单中的
+**"Qt 5.14.2 (MinGW 7.3.0 64-bit)"** 命令提示符——它已自动配置好 PATH，进入项目目录
+直接执行 `cmake` 即可，无需手动设置 `$env:PATH`。
 
 > - 未传 `-DQT_SDK_DIR` 时，CMake 会回退到本机默认 Qt 套件；配置阶段会打印实际使用的
 >   Qt 版本，并校验版本（5.12 ~ 6.7.0）与编译器/ABI 匹配，出错会给出明确提示。
@@ -92,9 +103,10 @@ build/SimpleFrpPanel.exe
 
 1. `File → Open` 选择根目录 `CMakeLists.txt`
 2. `Settings → Build, Execution, Deployment → Toolchains` 新建 MinGW 工具链，
-   编译器指向 `F:\Software\Qt5\Qt5.14.2\Tools\mingw730_64\bin\gcc.exe`
+   编译器指向你的 MinGW 安装路径下的 `bin\gcc.exe`（即上文的
+   `<QT_INSTALL>\Tools\mingw730_64\bin\gcc.exe`；在 Qt 安装目录的 `Tools\` 文件夹中查找）
 3. CMake profile 无需额外传参（自动回退本机 Qt），也可显式加
-   `-DQT_SDK_DIR=F:/Software/Qt5/Qt5.14.2/5.14.2/mingw73_64`
+   `-DQT_SDK_DIR=<QT_INSTALL>/5.14.2/mingw73_64`（指向你的 Qt 套件根目录）
 4. 构建运行即可（运行库自动部署）
 
 ## 架构说明
