@@ -1,4 +1,5 @@
 
+<div align="center">
 
 # SimpleFrpPanel
 
@@ -6,74 +7,61 @@
 
 基于 **Qt 5.14.2 + ElaWidgetTools** 的 FRP 可视化管理面板。
 
-支持在一个界面中管理 `frps` 和 `frpc`，包括用户、隧道、端口配额、流量统计等功能，并支持 Windows 系统托盘运行。
+支持在一个界面中管理 `frps` 和 `frpc`，包括用户、隧道、端口配额、流量统计等功能，支持 Windows 系统托盘运行与中英文界面。
 
+</div>
 
 ## 功能
+
+### 首页 · 运行总览
+
+- 2×2 自绘总览卡片，实时展示：
+  - **运行状态**：frps / 面板服务 / 数据库 / 仪表盘
+  - **数据统计**：用户数、隧道数（含启用数）
+  - **流量统计**：今日与累计收发流量
+  - **客户端会话**：登录状态、frpc 运行情况、我的隧道
+- 服务端/客户端页面各自汇总状态至全局信息，首页每秒自动刷新
 
 ### 服务端
 
 - 用户管理
   - SQLite 数据库管理
-  - 用户增删改查
+  - 用户增删改查、启用/禁用、到期时间
   - 盐值 + SHA-256 密码摘要
-  - 用户启用/禁用
-  - 到期时间
-  - 公网 IP 和端口配置
+  - 公网 IP / 端口配置
 - 隧道管理
-  - TCP / UDP / HTTP / HTTPS
-  - 域名隧道
-  - 按用户设置端口配额
-  - 远端端口范围和本地端口范围限制
-  - 数据库端口冲突检测
-  - 本机 TCP / UDP 端口占用检测
+  - TCP / UDP / HTTP / HTTPS 与域名隧道
+  - 按用户设置端口配额（远端/本地范围 + 最大端口数）
+  - 数据库端口冲突检测 + 本机 TCP/UDP 端口占用检测
 - frps 管理
-  - 选择 `frps.exe`
-  - 自动生成 `frps.toml`
-  - 一键启动/停止
-  - 配置修改后自动重启
-  - 运行状态和实时日志
+  - 使用内置 `frps.exe`（`程序目录\frp\`）或自定义选择
+  - 自动生成 `frps.toml`、一键启停、配置变更自动重启
+  - 运行状态与实时日志；绑定端口 / Token / 仪表盘端口**编辑即保存**
 - 面板服务
-  - TCP + JSON API
-  - 用户登录认证
-  - 隧道管理接口
+  - TCP + JSON API，用户登录认证与隧道管理接口
+  - 记忆上次选择的数据库与用户，重启后自动恢复
 
 ### 客户端
 
-- 服务器地址、端口、账号密码登录
-- 自动拒绝禁用或过期账号
-- 显示用户端口配额
-- 隧道增删改查
-- 隧道启停
-- 运行状态显示
-- 配额使用情况
-- 选择 `frpc.exe`
-- 自动生成 `frpc.toml`
-- frpc 一键启动/停止
-- 配置修改后自动重启
-- 实时日志
+- 服务器地址/端口/账号密码登录（登录参数**含密码自动记忆**，重开自动填充）
+- 显示端口配额与使用情况；隧道增删改查、启停、运行状态
+- 使用内置 `frpc.exe`（`程序目录\frp\`）或自定义选择
+- 自动生成 `frpc.toml`、一键启停、配置变更自动重启、实时日志
 
 ### 流量统计
 
-通过 frps Web API 定时采样流量，并按以下维度保存：
+通过 frps Web API 定时采样流量，按 **用户 + 隧道 + 日期** 保存；支持按用户、隧道、日期区间查询收发流量。已删除的用户/隧道，其历史流量记录仍保留。
 
-- 用户
-- 隧道
-- 日期
+### 设置 · 其他
 
-支持按用户、隧道和日期范围查询接收/发送流量。
-
-已删除的用户和隧道，其历史流量记录仍会保留。
-
-### 其他
-
-- ElaWidgetTools 深色/浅色主题
-- 系统托盘后台运行
-- 关闭窗口后隐藏到托盘
-- 通过托盘菜单退出程序
-- 页面切换自动刷新
-- 定时轮询同步数据
-- 隧道编辑支持填写快照保存/还原
+- **首页右上角齿轮进入设置面板**：
+  - 关闭窗口时是否询问「后台运行 / 直接退出」（可记忆选择，托盘菜单"退出"始终生效）
+  - 界面语言：简体中文 / English（重启生效）
+  - frp 更新代理（HTTP 代理，如 `127.0.0.1:7897`，留空走系统代理）
+- **内置 frp 与自动更新**：`frpc.exe`/`frps.exe` 随程序放在 `程序目录\frp\`；每次启动联网检查 GitHub 新版本，缺失或发现新版均可**一键下载更新**（带进度）
+- ElaWidgetTools 深/浅主题跟随；系统托盘后台运行
+- 新增隧道弹窗按 服务端/客户端 **分组记忆上次填写**，打开自动填充
+- 页面切换自动刷新 + 定时轮询同步
 
 ---
 
@@ -82,56 +70,48 @@
 | 组件 | 要求 |
 | --- | --- |
 | 操作系统 | Windows 7 及以上（x64） |
-| Qt | 5.14.2（MinGW 7.3 64-bit） |
-| CMake | >= 3.12 |
-| frps | 服务端需要 |
-| frpc | 客户端需要 |
+| Qt | 5.14.2（MinGW 7.3 64-bit，构建用） |
+| CMake | >= 3.12（构建用） |
+| frps / frpc | **随发布包内置**于 `frp\` 目录（版本 v0.71.0），也可手动放置或从 [frp Releases](https://github.com/fatedier/frp/releases) 获取 |
 
-`frps.exe` 和 `frpc.exe` 随面板提供，亦可从 [frp Releases](https://github.com/fatedier/frp/releases) 下载。
+> frp 程序随包内置，目录约定：`<程序目录>\frp\frpc.exe` 与 `frps.exe`。程序启动会自动检查更新（需联网，可在设置中配置代理）；若缺失会弹窗询问一键下载。
 
 ---
 
-## 使用
+## 快速使用
 
 ### 服务端
 
-1. 运行 `SimpleFrpPanel.exe`
-2. 进入 **服务端 · 用户管理**
-3. 新建数据库
-4. 创建用户
-5. 设置公网 IP 和端口
-6. 进入 **服务端 · 隧道管理**
-7. 设置用户端口配额
-8. 选择 `frps.exe` 并启动
-9. 启动面板服务
-10. 创建隧道
-
-例如：
-
-```text
-远端端口：15001
-内网地址：192.168.1.10
-内网端口：80
-协议：TCP
-```
-
-客户端连接后访问：
-
-```text
-公网IP:15001
-```
-
-即可访问内网服务。
+1. 运行 `SimpleFrpPanel.exe`，进入 **服务端 · 用户管理**：新建数据库 → 创建用户 → 设置公网 IP 与端口
+2. 进入 **服务端 · 隧道管理**：设置端口配额 → 点 **启动**（frps 路径已自动指向内置 `frp\frps.exe`）→ 启动面板服务
+3. 新增隧道，例如 TCP：远端端口 `15001` → 内网 `192.168.1.10:80`
+4. 客户端连接后访问 `公网IP:15001` 即可到达内网服务
 
 ### 客户端
 
-1. 进入 **客户端 · 隧道管理**
-2. 填写服务器地址和端口
-3. 输入账号密码并登录
-4. 选择 `frpc.exe`
-5. 启动 frpc
+1. 进入 **客户端 · 隧道管理**：服务器地址/端口/账号/密码将自动填充上次登录参数
+2. 点击 **登录**（首次需输入）；frpc 路径已自动指向内置 `frp\frpc.exe`
+3. 点击 **启动** 即开始转发，隧道可在列表内开关
 
-登录成功后可以查看自己的端口配额并管理隧道。
+### 语言与更新
+
+- **切换语言**：齿轮 → 界面语言 → 重启生效
+- **frp 更新**：启动时自动检查；可在设置中填写 HTTP 代理以加速下载
+
+---
+
+## 国际化（i18n）
+
+- 源码使用 Qt 标准 `tr()`，发布包内嵌 `SimpleFrpPanel_en.qm`（英文），默认中文
+- 翻译源文件：`translations/SimpleFrpPanel_en.ts`
+- 修改文案后更新翻译：
+
+```powershell
+# Qt 安装目录 bin 下
+lupdate -recursive src -ts translations/SimpleFrpPanel_en.ts   # 重新提取
+# 编辑 translations/SimpleFrpPanel_en.ts（Qt Linguist 或手工）补全英文
+lrelease translations/SimpleFrpPanel_en.ts -qm translations/SimpleFrpPanel_en.qm
+```
 
 ---
 
@@ -190,218 +170,78 @@ build/SimpleFrpPanel.exe
 
 ### Qt 路径
 
-Qt 套件目录：
+Qt 套件目录：`<QT_INSTALL>\5.14.2\mingw73_64`；MinGW 工具链：`<QT_INSTALL>\Tools\mingw730_64`。
 
-```text
-<QT_INSTALL>\5.14.2\mingw73_64
-```
-
-MinGW 工具链：
-
-```text
-<QT_INSTALL>\Tools\mingw730_64
-```
-
-如果使用 Qt 安装器安装，确保安装了：
-
-```text
-MinGW 7.3.0 64-bit
-```
-
-也可以直接使用 Qt 提供的：
-
-```text
-Qt 5.14.2 (MinGW 7.3.0 64-bit)
-```
-
-命令行环境，此时不需要手动配置 PATH。
+如果使用 Qt 安装器安装，请确保安装了 `MinGW 7.3.0 64-bit` 组件；也可以直接使用开始菜单中的 `Qt 5.14.2 (MinGW 7.3.0 64-bit)` 命令提示符环境（PATH 已配置好）。
 
 ---
 
 ## CLion
 
 1. 使用 CLion 打开项目根目录
-2. 配置 MinGW Toolchain
-3. 编译器选择：
-
-```text
-<QT_INSTALL>\Tools\mingw730_64\bin\gcc.exe
-```
-
-4. CMake Profile 可以直接使用默认配置，也可以添加：
-
-```text
--DQT_SDK_DIR=<QT_INSTALL>/5.14.2/mingw73_64
-```
-
-5. 构建并运行
-
-构建完成后会自动部署 Qt 和 MinGW 运行库。
+2. `Settings → Build, Execution, Deployment → Toolchains` 新建 MinGW 工具链，编译器指向 `<QT_INSTALL>\Tools\mingw730_64\bin\gcc.exe`
+3. CMake Profile 可直接使用默认配置（自动回退本机 Qt），也可显式加 `-DQT_SDK_DIR=<QT_INSTALL>/5.14.2/mingw73_64`
+4. 构建并运行（完成后自动部署 Qt 与 MinGW 运行库）
 
 ---
 
-## 项目结构
-
-```text
-SimpleFrpPanel/
-├── CMakeLists.txt
-├── include/
-│   └── ElaWidgetTools/
-└── src/
-    ├── main.cpp
-    ├── MainWindow.h/.cpp
-    ├── DatabaseManager.h/.cpp
-    ├── UserEditDialog.h/.cpp
-    ├── TunnelEditDialog.h/.cpp
-    ├── PortChecker.h/.cpp
-    ├── FrpsManager.h/.cpp
-    ├── PanelApiServer.h/.cpp
-    ├── PanelClient.h/.cpp
-    ├── TrafficMonitor.h/.cpp
-    ├── StatusLight.h/.cpp
-    ├── StatusDotDelegate.h/.cpp
-    └── *Page.h/.cpp/.ui
-```
-
-### 主要模块
-
-| 文件                  | 功能                  |
-| ------------------- | ------------------- |
-| `MainWindow`        | 主窗口、导航、系统托盘         |
-| `DatabaseManager`   | SQLite 数据库          |
-| `FrpsManager`       | frps/frpc 进程管理和配置生成 |
-| `PanelApiServer`    | 面板 API 服务           |
-| `PanelClient`       | 客户端 API             |
-| `TrafficMonitor`    | 流量采样和统计             |
-| `PortChecker`       | TCP/UDP 端口检测        |
-| `StatusLight`       | 状态灯                 |
-| `StatusDotDelegate` | 表格状态灯               |
-
-页面使用独立 `.ui` 文件，可以直接通过 Qt Designer 编辑。
-
-ElaWidgetTools 控件通过 Qt Designer 的提升功能使用，例如：
-
-```text
-QPushButton → ElaPushButton
-```
-
----
-
-## 数据和配置
+## 数据与配置
 
 程序运行目录下：
 
 ```text
+frp/
+├── frpc.exe          # 内置 frp 客户端（可被自动更新替换）
+├── frps.exe          # 内置 frp 服务端
+└── frp_version.txt   # 内置 frp 版本号（更新检查用）
+
 data/
-├── *.db
-└── *.frps.toml
+├── *.db              # SQLite 数据库（WAL 模式，busy_timeout=5000）
+└── *.frps.toml       # 自动生成的 frps 配置
 
-frpc.toml
-config.ini
+frpc.toml             # 自动生成的 frpc 配置
+config.ini            # 程序设置（见下）
 ```
 
-### 数据库
+主要数据表：`users`、`tunnels`、`settings`、`traffic_records`。`traffic_records` 不会因用户或隧道删除而丢失，可保留历史流量。
 
-SQLite 数据库位于：
+### config.ini 键值
 
-```text
-data/*.db
-```
-
-数据库使用 WAL 模式，并设置：
-
-```text
-busy_timeout = 5000
-```
-
-主要数据表：
-
-```text
-users
-tunnels
-settings
-traffic_records
-```
-
-其中 `traffic_records` 不会因为用户或隧道删除而删除，因此可以保留历史流量。
-
-### 配置文件
-
-服务端：
-
-```text
-data/<数据库名>.frps.toml
-```
-
-客户端：
-
-```text
-frpc.toml
-```
-
-程序设置：
-
-```text
-config.ini
-```
+| 分组 | 键 | 说明 |
+| --- | --- | --- |
+| `general` | `confirmOnClose` / `closeAction` | 关闭窗口是否询问，及记忆动作（tray/quit） |
+| `general` | `language` | 界面语言：`zh_CN` / `en` |
+| `general` | `updateProxy` | frp 更新 HTTP 代理（主机:端口，空=系统代理） |
+| `client` | `host` / `port` / `username` / `password` | 客户端登录参数（密码 Base64 编码） |
+| `server_state` | `dbName` / `userId` | 服务端上次选择的数据库与用户 |
+| `tunnel_draft_server` / `tunnel_draft_client` | 各隧道字段 | 新增隧道弹窗填写记忆 |
+| `frps/path`、`client/frpcPath` | — | frps / frpc 程序路径（为空时自动指向内置 `frp\`） |
 
 ---
 
 ## 常见问题
 
-### frps 启动失败
+### frps 启动失败（端口被占用）
 
-如果出现：
-
-```text
-bind: Only one usage of each socket address
-```
-
-说明端口已经被其他程序占用。
-
-可以检查端口占用情况：
-
-```powershell
-netstat -ano | findstr :<端口>
-```
-
-结束占用进程，或者修改 frps 的绑定端口。
+出现 `bind: Only one usage of each socket address` 说明端口已被占用。检查：`netstat -ano | findstr :<端口>`，结束占用进程，或修改 frps 绑定端口后重试（端口在页面编辑即保存）。
 
 ### 流量统计没有数据
 
-确认：
+确认：frps 正在运行、Web Dashboard 已启用、隧道正在使用且有实际流量；首次采样需等待约 20 秒建立基准。日志出现"流量采样已连接 frps 仪表盘"表示链路正常。
 
-1. frps 正在运行
-2. Web Dashboard 已启用
-3. 隧道正在使用
-4. 已经有实际流量经过隧道
+### 提示"未找到内置 frp" / 更新失败
 
-首次采样需要等待一段时间，之后按照采样结果累计记录。
-
-如果日志显示：
-
-```text
-流量采样已连接 frps 仪表盘
-```
-
-说明连接正常。
+- 首次运行会弹窗询问是否一键下载 frp（需要联网）
+- 更新失败常见于网络受限：在 设置 → frp 更新代理 填写 HTTP 代理（如 `127.0.0.1:7897`）后重启重试
+- frps/frpc 正在运行时更新会被占用，请先停止再更新
 
 ### 客户端无法登录
 
-检查：
-
-* 服务器地址
-* 面板服务端口
-* 用户名
-* 密码
-* 用户是否被禁用
-* 用户是否已经过期
+检查服务器地址、面板服务端口、用户名密码，以及用户是否被禁用/过期。
 
 ### 切换页面后客户端掉线
 
-正常情况下切换页面不会重启面板服务。
-
-只有数据库或端口配置实际发生变化时，相关服务才会重新启动。
+正常切页不会重启面板服务；仅当数据库或端口配置实际变化时才重启相关服务。
 
 ---
 
@@ -409,64 +249,20 @@ netstat -ano | findstr :<端口>
 
 ### 面板 API
 
-使用：
-
-```text
-TCP + JSON Line
-```
-
-客户端登录后由服务端签发随机 Token，后续请求携带 Token。
-
-服务端会检查：
-
-* Token 是否有效
-* 用户身份
-* 隧道归属
-* 端口配额
+TCP + JSON 行协议。客户端登录后服务端签发随机 Token，后续请求携带；服务端校验 Token 有效性、用户身份、隧道归属与端口配额。
 
 ### 端口配额
 
-每个用户可以设置：
-
-```text
-远端端口范围
-本地端口范围
-最大端口数量
-```
-
-客户端只能在允许范围内创建隧道。
-
-创建或修改隧道时会进行两层检查：
-
-```text
-数据库端口冲突
-        +
-本机实际端口占用
-```
+每个用户可设置远端端口范围、本地端口范围与最大端口数量；客户端只能在允许范围内创建隧道。创建/修改隧道时做两层检查：数据库端口冲突 + 本机实际端口占用。
 
 ### 流量统计
 
-定时访问 frps Dashboard API 获取流量数据，并按照：
-
-```text
-用户 + 隧道 + 日期
-```
-
-累计保存。
+定时访问 frps Dashboard API，按 用户 + 隧道 + 日期 累计保存。
 
 ---
 
 ## 许可证
 
-本项目使用 [MIT License](LICENSE)。
+本项目使用 [MIT License](LICENSE)。版权所有 © 2025 CCA8798。
 
-版权所有 © 2025 CCA8798
-
-ElaWidgetTools 使用 MIT License。
-
-frp 使用 Apache-2.0 License，由 [fatedier/frp](https://github.com/fatedier/frp) 提供。
-
-```
-
-我这里主要做了三件事：**删掉重复说明、把过于“解释性”的句子改成项目文档口吻、把功能和构建流程重新分层**。这样放 GitHub 上会更像一个正常的开源项目 README，而不是产品需求文档。
-```
+ElaWidgetTools 使用 MIT License。frp 使用 Apache-2.0 License，由 [fatedier/frp](https://github.com/fatedier/frp) 提供。
