@@ -1,6 +1,8 @@
 
 <div align="center">
 
+[**English**](README.en.md) | **简体中文**
+
 # SimpleFrpPanel
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
