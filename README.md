@@ -2,11 +2,12 @@
 
 # SimpleFrpPanel
 
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
 基于 **Qt 5.14.2 + ElaWidgetTools** 的 FRP 可视化管理面板。
 
 支持在一个界面中管理 `frps` 和 `frpc`，包括用户、隧道、端口配额、流量统计等功能，并支持 Windows 系统托盘运行。
 
-![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 ## 功能
 
@@ -86,7 +87,7 @@
 | frps | 服务端需要 |
 | frpc | 客户端需要 |
 
-`frps.exe` 和 `frpc.exe` 不随面板提供，请从 [frp Releases](https://github.com/fatedier/frp/releases) 下载。
+`frps.exe` 和 `frpc.exe` 随面板提供，亦可从 [frp Releases](https://github.com/fatedier/frp/releases) 下载。
 
 ---
 
