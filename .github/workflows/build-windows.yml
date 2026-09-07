@@ -1,0 +1,138 @@
+name: Build Windows
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - dev
+
+  pull_request:
+    branches:
+      - main
+      - master
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Windows x64
+
+    runs-on: windows-2022
+
+    steps:
+      # =========================================================
+      # 1. 拉取项目（含子模块）
+      # =========================================================
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # =========================================================
+      # 2. 安装 Qt 5.14.2 MinGW 7.3
+      #    注意：不指定 modules，因为 qtbase 默认包含，无需显式列出
+      # =========================================================
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 5.14.2
+          arch: win64_mingw73
+          cache: true          # 启用缓存以加速后续构建
+
+      # =========================================================
+      # 3. 检查环境
+      # =========================================================
+      - name: Check Environment
+        shell: powershell
+        run: |
+          Write-Host "========== Qt =========="
+          qmake --version
+
+          Write-Host ""
+          Write-Host "========== CMake =========="
+          cmake --version
+
+          Write-Host ""
+          Write-Host "========== GCC =========="
+          g++ --version
+
+          Write-Host ""
+          Write-Host "========== Qt5_DIR =========="
+          Write-Host $env:Qt5_DIR
+
+      # =========================================================
+      # 4. CMake 配置
+      # =========================================================
+      - name: Configure CMake
+        shell: powershell
+        run: |
+          cmake `
+            -S . `
+            -B build `
+            -G "MinGW Makefiles" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DQT_SDK_DIR="$env:Qt5_DIR"
+
+      # =========================================================
+      # 5. 编译
+      # =========================================================
+      - name: Build
+        shell: powershell
+        run: |
+          cmake --build build --parallel
+
+      # =========================================================
+      # 6. 检查 exe
+      # =========================================================
+      - name: Check Build
+        shell: powershell
+        run: |
+          if (!(Test-Path "build/SimpleFrpPanel.exe")) {
+              Write-Error "SimpleFrpPanel.exe not found!"
+              exit 1
+          }
+
+          Write-Host ""
+          Write-Host "========== Build Output =========="
+
+          Get-ChildItem build -Recurse |
+            Where-Object {
+              $_.Extension -in @(
+                ".exe",
+                ".dll"
+              )
+            } |
+            Select-Object FullName
+
+      # =========================================================
+      # 7. 打包
+      # =========================================================
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path package
+
+          Copy-Item `
+            "build/*" `
+            "package/" `
+            -Recurse `
+            -Force
+
+          Compress-Archive `
+            -Path "package/*" `
+            -DestinationPath "SimpleFrpPanel-Windows-x64.zip" `
+            -Force
+
+      # =========================================================
+      # 8. 上传 GitHub Actions Artifact
+      # =========================================================
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SimpleFrpPanel-Windows-x64
+          path: SimpleFrpPanel-Windows-x64.zip
+          if-no-files-found: error
