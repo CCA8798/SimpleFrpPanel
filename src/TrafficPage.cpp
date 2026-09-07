@@ -91,9 +91,9 @@ TrafficPage::TrafficPage(QWidget* parent)
 
     // 结果表：用户 / 隧道 / 接收流量 / 发送流量 / 合计
     m_TrafficModel->setHorizontalHeaderLabels(
-        QStringList() << QStringLiteral("用户") << QStringLiteral("隧道")
-                      << QStringLiteral("接收流量") << QStringLiteral("发送流量")
-                      << QStringLiteral("合计"));
+        QStringList() << tr("用户") << tr("隧道")
+                      << tr("接收流量") << tr("发送流量")
+                      << tr("合计"));
     m_Ui->trafficTableView->setModel(m_TrafficModel);
     m_Ui->trafficTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_Ui->trafficTableView->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -156,14 +156,14 @@ void TrafficPage::onCurrentDbChanged()
         m_Ui->tunnelComboBox->clear();
         m_LastQuerySignature.clear();
         m_TrafficModel->setRowCount(0);
-        m_Ui->totalLabel->setText(QStringLiteral("总流量：-"));
+        m_Ui->totalLabel->setText(tr("总流量：-"));
         return;
     }
     if (m_DatabaseManager->currentDatabaseName() != fileName
         && !m_DatabaseManager->openDatabase(fileName))
     {
-        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                             QStringLiteral("打开数据库 %1 失败").arg(fileName), 2000, this);
+        ElaMessageBar::error(ElaMessageBarType::TopRight, tr("提示"),
+                             tr("打开数据库 %1 失败").arg(fileName), 2000, this);
         m_Ui->dbComboBox->blockSignals(true);
         m_Ui->dbComboBox->removeItem(m_Ui->dbComboBox->currentIndex());
         m_Ui->dbComboBox->blockSignals(false);
@@ -196,7 +196,7 @@ void TrafficPage::refreshUserComboBox()
     const int previousUserId = m_Ui->userComboBox->currentData().toInt();
     m_Ui->userComboBox->blockSignals(true);
     m_Ui->userComboBox->clear();
-    m_Ui->userComboBox->addItem(QStringLiteral("全部用户"), kAllUsersId);
+    m_Ui->userComboBox->addItem(tr("全部用户"), kAllUsersId);
     const QList<DatabaseManager::UserInfo> users = m_DatabaseManager->queryUsers();
     for (const DatabaseManager::UserInfo& user : users)
     {
@@ -214,7 +214,7 @@ void TrafficPage::refreshTunnelComboBox()
     const QString previousName = m_Ui->tunnelComboBox->currentText();
     m_Ui->tunnelComboBox->blockSignals(true);
     m_Ui->tunnelComboBox->clear();
-    m_Ui->tunnelComboBox->addItem(QStringLiteral("全部隧道"));
+    m_Ui->tunnelComboBox->addItem(tr("全部隧道"));
 
     if (m_CurrentUserId > 0)
     {
@@ -233,7 +233,7 @@ void TrafficPage::refreshTunnelComboBox()
         {
             if (!currentNames.contains(name))
             {
-                m_Ui->tunnelComboBox->addItem(name + QStringLiteral("（已删除）"));
+                m_Ui->tunnelComboBox->addItem(name + tr("（已删除）"));
             }
         }
     }
@@ -271,7 +271,7 @@ void TrafficPage::runQuery()
     if (!m_DatabaseManager->isOpen())
     {
         m_TrafficModel->setRowCount(0);
-        m_Ui->totalLabel->setText(QStringLiteral("总流量：-"));
+        m_Ui->totalLabel->setText(tr("总流量：-"));
         m_LastQuerySignature.clear();
         return;
     }
@@ -289,14 +289,14 @@ void TrafficPage::runQuery()
         }
     }
     const QString rangeText = m_Ui->allTimeCheck->isChecked()
-                                  ? QStringLiteral("全部时间")
-                                  : QStringLiteral("%1 至 %2").arg(dateFrom, dateTo);
+                                  ? tr("全部时间")
+                                  : tr("%1 至 %2").arg(dateFrom, dateTo);
 
     const QString selectedTunnelName = m_Ui->tunnelComboBox->currentText();
     QString selectedTunnel = selectedTunnelName;
-    if (selectedTunnel.endsWith(QStringLiteral("（已删除）")))
+    if (selectedTunnel.endsWith(tr("（已删除）")))
     {
-        selectedTunnel.chop(QStringLiteral("（已删除）").size());
+        selectedTunnel.chop(tr("（已删除）").size());
     }
 
     // 第一步：查询并收集结果（不触碰界面）
@@ -316,10 +316,10 @@ void TrafficPage::runQuery()
             m_DatabaseManager->queryUserTraffic(dateFrom, dateTo);
         for (const DatabaseManager::TrafficSummary& summary : summaries)
         {
-            rows.append(Row{summary.name, QStringLiteral("（全部）"),
+            rows.append(Row{summary.name, tr("（全部）"),
                             summary.bytesIn, summary.bytesOut});
         }
-        totalText = QStringLiteral("总流量（%1，%2 位用户）：%3")
+        totalText = tr("总流量（%1，%2 位用户）：%3")
                         .arg(rangeText)
                         .arg(summaries.size())
                         .arg(formatBytes(summaryTotal(summaries)));
@@ -335,7 +335,7 @@ void TrafficPage::runQuery()
         qint64 rangeTotal = 0;
         for (const DatabaseManager::TrafficSummary& summary : summaries)
         {
-            if (!selectedTunnel.isEmpty() && selectedTunnel != QStringLiteral("全部隧道")
+            if (!selectedTunnel.isEmpty() && selectedTunnel != tr("全部隧道")
                 && summary.name != selectedTunnel)
             {
                 continue;
@@ -343,7 +343,7 @@ void TrafficPage::runQuery()
             rows.append(Row{userName, summary.name, summary.bytesIn, summary.bytesOut});
             rangeTotal += summary.bytesIn + summary.bytesOut;
         }
-        totalText = QStringLiteral("总流量（%1）：%2 | 历史总流量：%3")
+        totalText = tr("总流量（%1）：%2 | 历史总流量：%3")
                         .arg(rangeText)
                         .arg(formatBytes(rangeTotal))
                         .arg(formatBytes(userTotal.bytesIn + userTotal.bytesOut));

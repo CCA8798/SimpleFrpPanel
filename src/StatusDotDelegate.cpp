@@ -22,11 +22,11 @@ void StatusDotDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt
 
     // 状态灯颜色
     QColor dotColor(0x9E, 0x9E, 0x9E); // 未运行：灰
-    if (text == QStringLiteral("运行中"))
+    if (text == tr("运行中"))
     {
         dotColor = QColor(0x4C, 0xAF, 0x50); // 绿
     }
-    else if (text == QStringLiteral("已禁用"))
+    else if (text == tr("已禁用"))
     {
         dotColor = QColor(0xFF, 0x98, 0x00); // 橙
     }

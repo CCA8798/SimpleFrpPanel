@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ServerTunnelPage</class>
  <widget class="QWidget" name="ServerTunnelPage">
@@ -54,6 +54,12 @@
        <layout class="QHBoxLayout" name="dbUserRow">
         <item>
          <widget class="ElaText" name="dbLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>数据库</string>
           </property>
@@ -71,6 +77,12 @@
         </item>
         <item>
          <widget class="ElaText" name="userLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>用户</string>
           </property>
@@ -112,6 +124,12 @@
        <layout class="QHBoxLayout" name="frpsRow">
         <item>
          <widget class="ElaText" name="frpsLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>frps 程序</string>
           </property>
@@ -142,6 +160,12 @@
         </item>
         <item>
          <widget class="ElaText" name="portLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>端口</string>
           </property>
@@ -162,6 +186,12 @@
         </item>
         <item>
          <widget class="ElaText" name="webPortLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>Web</string>
           </property>
@@ -182,6 +212,12 @@
         </item>
         <item>
          <widget class="ElaText" name="tokenLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>Token</string>
           </property>
@@ -189,6 +225,12 @@
         </item>
         <item>
          <widget class="ElaLineEdit" name="frpsTokenEdit">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="minimumSize">
            <size>
             <width>120</width>
@@ -243,6 +285,12 @@
        <layout class="QHBoxLayout" name="quotaRow">
         <item>
          <widget class="ElaText" name="quotaLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>端口配额</string>
           </property>
@@ -250,6 +298,12 @@
         </item>
         <item>
          <widget class="ElaText" name="remoteRangeLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>远端</string>
           </property>
@@ -284,6 +338,12 @@
         </item>
         <item>
          <widget class="ElaText" name="localRangeLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>本地</string>
           </property>
@@ -318,6 +378,12 @@
         </item>
         <item>
          <widget class="ElaText" name="maxCountLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>最大端口数</string>
           </property>
@@ -359,6 +425,12 @@
        <layout class="QHBoxLayout" name="panelServiceRow">
         <item>
          <widget class="ElaText" name="panelServiceLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>面板服务</string>
           </property>
@@ -386,6 +458,12 @@
         </item>
         <item>
          <widget class="ElaText" name="panelServiceStatusLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>未运行</string>
           </property>

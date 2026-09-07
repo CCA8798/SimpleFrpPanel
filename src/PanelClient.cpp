@@ -31,9 +31,9 @@ PanelClient::PanelClient(QObject* parent)
                 if (m_WaitingLoginResponse)
                 {
                     m_WaitingLoginResponse = false;
-                    emit loginFailed(QStringLiteral("无法连接服务器: %1").arg(m_Socket->errorString()));
+                    emit loginFailed(tr("无法连接服务器: %1").arg(m_Socket->errorString()));
                 }
-                emit logMessage(QStringLiteral("[%1] 连接错误: %2")
+                emit logMessage(tr("[%1] 连接错误: %2")
                                     .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                                          m_Socket->errorString()));
             });
@@ -182,7 +182,7 @@ void PanelClient::onConnected()
 {
     m_TimeoutTimer->stop();
     emit connectionStateChanged(true);
-    emit logMessage(QStringLiteral("[%1] 已连接到服务器 %2:%3")
+    emit logMessage(tr("[%1] 已连接到服务器 %2:%3")
                         .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                              m_Socket->peerAddress().toString())
                         .arg(m_Socket->peerPort()));
@@ -207,7 +207,7 @@ void PanelClient::onConnectionTimeout()
     if (m_WaitingLoginResponse)
     {
         m_WaitingLoginResponse = false;
-        emit loginFailed(QStringLiteral("连接或登录超时"));
+        emit loginFailed(tr("连接或登录超时"));
     }
     m_Socket->abort();
 }
@@ -246,14 +246,14 @@ void PanelClient::onReadyRead()
                 m_Username = response.value(QStringLiteral("username")).toString();
                 emit loginSucceeded(response.value(QStringLiteral("quota")).toObject(),
                                     response.value(QStringLiteral("serverInfo")).toObject());
-                emit logMessage(QStringLiteral("[%1] 登录成功: %2")
+                emit logMessage(tr("[%1] 登录成功: %2")
                                     .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                                          m_Username));
             }
             else
             {
                 emit loginFailed(response.value(QStringLiteral("message")).toString());
-                emit logMessage(QStringLiteral("[%1] 登录失败: %2")
+                emit logMessage(tr("[%1] 登录失败: %2")
                                     .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                                          response.value(QStringLiteral("message")).toString()));
             }

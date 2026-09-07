@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ClientTunnelPage</class>
  <widget class="QWidget" name="ClientTunnelPage">
@@ -130,6 +130,19 @@
          </widget>
         </item>
         <item>
+         <widget class="ElaText" name="quotaLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>未登录</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="ElaText" name="connStatusLabel">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -156,13 +169,6 @@
          </spacer>
         </item>
        </layout>
-      </item>
-      <item>
-       <widget class="ElaText" name="quotaLabel">
-        <property name="text">
-         <string>未登录</string>
-        </property>
-       </widget>
       </item>
       <item>
        <layout class="QHBoxLayout" name="frpcRow">

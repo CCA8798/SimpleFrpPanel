@@ -20,8 +20,9 @@ const QStringList kProtocols = QStringList()
                                << QStringLiteral("tcp") << QStringLiteral("udp")
                                << QStringLiteral("http") << QStringLiteral("https");
 
-// 新增隧道草稿快照（config.ini 的 tunnel_draft 分组）
-const QString kDraftSection = QStringLiteral("tunnel_draft");
+// 新增隧道草稿快照（config.ini）：默认组 tunnel_draft，
+// 传入 draftKey 时用独立组 tunnel_draft_<key>（服务端/客户端各自记忆）
+const QString kDraftBaseSection = QStringLiteral("tunnel_draft");
 
 QSettings draftSettings()
 {
@@ -37,11 +38,12 @@ ElaText* makeCompactLabel(const QString& text, QWidget* parent)
 }
 } // namespace
 
-TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
+TunnelEditDialog::TunnelEditDialog(bool isEditMode, const QString& draftKey, QWidget* parent)
     : ElaDialog(parent)
     , m_IsEditMode(isEditMode)
+    , m_DraftKey(draftKey)
 {
-    setWindowTitle(isEditMode ? QStringLiteral("修改隧道") : QStringLiteral("新增隧道"));
+    setWindowTitle(isEditMode ? tr("修改隧道") : tr("新增隧道"));
     setWindowButtonFlags(ElaAppBarType::CloseButtonHint);
     setIsFixedSize(true);
 
@@ -58,42 +60,42 @@ TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
         return edit;
     };
 
-    m_NameEdit = makeEdit(QStringLiteral("请输入隧道名称"), 64);
+    m_NameEdit = makeEdit(tr("请输入隧道名称"), 64);
 
     m_ProtocolCombo = new ElaComboBox(this);
     m_ProtocolCombo->setFixedHeight(32);
     m_ProtocolCombo->addItems(kProtocols);
 
-    m_RemotePortEdit = makeEdit(QStringLiteral("服务端监听端口 (1-65535)"), 5);
+    m_RemotePortEdit = makeEdit(tr("服务端监听端口 (1-65535)"), 5);
     m_RemotePortEdit->setValidator(new QIntValidator(1, 65535, this));
 
-    m_LocalIpEdit = makeEdit(QStringLiteral("目标内网 IP，如 192.168.1.10"), 46);
+    m_LocalIpEdit = makeEdit(tr("目标内网 IP，如 192.168.1.10"), 46);
 
-    m_LocalPortEdit = makeEdit(QStringLiteral("目标端口 (1-65535)"), 5);
+    m_LocalPortEdit = makeEdit(tr("目标端口 (1-65535)"), 5);
     m_LocalPortEdit->setValidator(new QIntValidator(1, 65535, this));
 
-    m_DomainEdit = makeEdit(QStringLiteral("自定义域名（http/https 必填）"), 128);
+    m_DomainEdit = makeEdit(tr("自定义域名（http/https 必填）"), 128);
 
-    m_EnabledCheck = new ElaCheckBox(QStringLiteral("启用该隧道"), this);
+    m_EnabledCheck = new ElaCheckBox(tr("启用该隧道"), this);
     m_EnabledCheck->setChecked(true);
 
-    m_RemarkEdit = makeEdit(QStringLiteral("备注（可选）"), 128);
+    m_RemarkEdit = makeEdit(tr("备注（可选）"), 128);
 
     QFormLayout* formLayout = new QFormLayout;
     formLayout->setVerticalSpacing(6);
     formLayout->setHorizontalSpacing(12);
     formLayout->setContentsMargins(0, 0, 0, 0);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("隧道名称："), this), m_NameEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("协议："), this), m_ProtocolCombo);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("远端端口："), this), m_RemotePortEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("目标 IP："), this), m_LocalIpEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("目标端口："), this), m_LocalPortEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("自定义域名："), this), m_DomainEdit);
+    formLayout->addRow(makeCompactLabel(tr("隧道名称："), this), m_NameEdit);
+    formLayout->addRow(makeCompactLabel(tr("协议："), this), m_ProtocolCombo);
+    formLayout->addRow(makeCompactLabel(tr("远端端口："), this), m_RemotePortEdit);
+    formLayout->addRow(makeCompactLabel(tr("目标 IP："), this), m_LocalIpEdit);
+    formLayout->addRow(makeCompactLabel(tr("目标端口："), this), m_LocalPortEdit);
+    formLayout->addRow(makeCompactLabel(tr("自定义域名："), this), m_DomainEdit);
     formLayout->addRow(QString(), m_EnabledCheck);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("备注："), this), m_RemarkEdit);
+    formLayout->addRow(makeCompactLabel(tr("备注："), this), m_RemarkEdit);
 
-    ElaPushButton* cancelButton = new ElaPushButton(QStringLiteral("取消"), this);
-    ElaPushButton* okButton = new ElaPushButton(QStringLiteral("确定"), this);
+    ElaPushButton* cancelButton = new ElaPushButton(tr("取消"), this);
+    ElaPushButton* okButton = new ElaPushButton(tr("确定"), this);
     cancelButton->setFixedHeight(32);
     okButton->setFixedHeight(32);
     QHBoxLayout* buttonLayout = new QHBoxLayout;
@@ -115,8 +117,8 @@ TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
                                  || protocol == QStringLiteral("https"));
         m_RemotePortEdit->setEnabled(!isHttpLike);
         m_RemotePortEdit->setPlaceholderText(isHttpLike
-                                                 ? QStringLiteral("http/https 走域名，无需端口")
-                                                 : QStringLiteral("服务端监听端口 (1-65535)"));
+                                                 ? tr("http/https 走域名，无需端口")
+                                                 : tr("服务端监听端口 (1-65535)"));
         m_DomainEdit->setEnabled(isHttpLike);
     };
     connect(m_ProtocolCombo, QOverload<int>::of(&ElaComboBox::currentIndexChanged),
@@ -127,8 +129,8 @@ TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
     connect(okButton, &ElaPushButton::clicked, this, [this]() {
         if (name().trimmed().isEmpty())
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("隧道名称不能为空"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("隧道名称不能为空"), 2000, this);
             return;
         }
         const QString protocol = this->protocol();
@@ -136,37 +138,37 @@ TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
                                  || protocol == QStringLiteral("https"));
         if (!isHttpLike && (remotePort() < 1 || remotePort() > 65535))
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("远端端口必须是 1-65535 的整数"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("远端端口必须是 1-65535 的整数"), 2000, this);
             return;
         }
         if (localPort() < 1 || localPort() > 65535)
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("目标端口必须是 1-65535 的整数"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("目标端口必须是 1-65535 的整数"), 2000, this);
             return;
         }
         if (localIp().trimmed().isEmpty())
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("目标内网 IP 不能为空"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("目标内网 IP 不能为空"), 2000, this);
             return;
         }
         if (isHttpLike && customDomain().trimmed().isEmpty())
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("http/https 隧道必须填写自定义域名"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("http/https 隧道必须填写自定义域名"), 2000, this);
             return;
         }
         accept();
     });
 
-    // 新增模式下：还原上次填写的内容（快照）
+    // 新增模式下：自动填充上次填写的数据（按分组记忆：服务端/客户端各自一份）
     bool draftRestored = false;
     if (!isEditMode)
     {
         QSettings settings = draftSettings();
-        settings.beginGroup(kDraftSection);
+        settings.beginGroup(draftSection());
         if (settings.contains(QStringLiteral("name")))
         {
             setName(settings.value(QStringLiteral("name")).toString());
@@ -188,8 +190,8 @@ TunnelEditDialog::TunnelEditDialog(bool isEditMode, QWidget* parent)
 
     if (draftRestored)
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("已还原上次未保存的内容"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("已自动填充上次填写的内容"), 2000, this);
     }
 }
 
@@ -294,6 +296,13 @@ void TunnelEditDialog::reject()
     ElaDialog::reject();
 }
 
+QString TunnelEditDialog::draftSection() const
+{
+    // 独立分组（如 tunnel_draft_server / tunnel_draft_client），避免服务端与客户端互相覆盖
+    return m_DraftKey.isEmpty() ? kDraftBaseSection
+                                : kDraftBaseSection + QLatin1Char('_') + m_DraftKey;
+}
+
 void TunnelEditDialog::saveDraft() const
 {
     // 完全空白的填写不保存（避免下次打开提示"已还原"却什么都没有）
@@ -304,7 +313,7 @@ void TunnelEditDialog::saveDraft() const
         return;
     }
     QSettings settings = draftSettings();
-    settings.beginGroup(kDraftSection);
+    settings.beginGroup(draftSection());
     settings.setValue(QStringLiteral("name"), name());
     settings.setValue(QStringLiteral("protocol"), protocol());
     settings.setValue(QStringLiteral("remotePort"), remotePort());

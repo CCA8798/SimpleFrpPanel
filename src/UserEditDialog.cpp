@@ -26,7 +26,7 @@ UserEditDialog::UserEditDialog(bool isEditMode, QWidget* parent)
     : ElaDialog(parent)
     , m_IsEditMode(isEditMode)
 {
-    setWindowTitle(isEditMode ? QStringLiteral("修改用户") : QStringLiteral("新增用户"));
+    setWindowTitle(isEditMode ? tr("修改用户") : tr("新增用户"));
     setWindowButtonFlags(ElaAppBarType::CloseButtonHint);
     setIsFixedSize(true);
 
@@ -37,31 +37,31 @@ UserEditDialog::UserEditDialog(bool isEditMode, QWidget* parent)
 
     m_UsernameEdit = new ElaLineEdit(this);
     m_UsernameEdit->setFixedHeight(32);
-    m_UsernameEdit->setPlaceholderText(QStringLiteral("请输入用户名"));
+    m_UsernameEdit->setPlaceholderText(tr("请输入用户名"));
     m_UsernameEdit->setMaxLength(32);
 
     m_PasswordEdit = new ElaLineEdit(this);
     m_PasswordEdit->setFixedHeight(32);
     m_PasswordEdit->setEchoMode(QLineEdit::Password);
     m_PasswordEdit->setMaxLength(64);
-    m_PasswordEdit->setPlaceholderText(isEditMode ? QStringLiteral("留空则不修改密码")
-                                                  : QStringLiteral("请输入密码"));
+    m_PasswordEdit->setPlaceholderText(isEditMode ? tr("留空则不修改密码")
+                                                  : tr("请输入密码"));
 
     m_RemarkEdit = new ElaLineEdit(this);
     m_RemarkEdit->setFixedHeight(32);
-    m_RemarkEdit->setPlaceholderText(QStringLiteral("备注（可选）"));
+    m_RemarkEdit->setPlaceholderText(tr("备注（可选）"));
     m_RemarkEdit->setMaxLength(128);
 
     // 到期时间：默认永不过期；取消勾选后启用日期选择器
     // 注意：toggled 的参数是"勾选状态"，启用/禁用逻辑取反（勾选=禁用选择器）
-    m_NeverExpireCheck = new ElaCheckBox(QStringLiteral("永不过期"), this);
+    m_NeverExpireCheck = new ElaCheckBox(tr("永不过期"), this);
     m_NeverExpireCheck->setChecked(true);
     m_ExpirePicker = new ElaCalendarPicker(this);
     m_ExpirePicker->setFixedHeight(32);
     m_ExpirePicker->setSelectedDate(QDate::currentDate().addYears(1));
     m_ExpirePicker->setEnabled(false);
 
-    m_EnabledCheck = new ElaCheckBox(QStringLiteral("启用该账号"), this);
+    m_EnabledCheck = new ElaCheckBox(tr("启用该账号"), this);
     m_EnabledCheck->setChecked(true);
 
     // 到期时间行：日期选择器与"永不过期"内联，减少行数
@@ -75,14 +75,14 @@ UserEditDialog::UserEditDialog(bool isEditMode, QWidget* parent)
     formLayout->setVerticalSpacing(6);
     formLayout->setHorizontalSpacing(12);
     formLayout->setContentsMargins(0, 0, 0, 0);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("用户名："), this), m_UsernameEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("密码："), this), m_PasswordEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("备注："), this), m_RemarkEdit);
-    formLayout->addRow(makeCompactLabel(QStringLiteral("到期时间："), this), expireRow);
+    formLayout->addRow(makeCompactLabel(tr("用户名："), this), m_UsernameEdit);
+    formLayout->addRow(makeCompactLabel(tr("密码："), this), m_PasswordEdit);
+    formLayout->addRow(makeCompactLabel(tr("备注："), this), m_RemarkEdit);
+    formLayout->addRow(makeCompactLabel(tr("到期时间："), this), expireRow);
     formLayout->addRow(QString(), m_EnabledCheck);
 
-    ElaPushButton* cancelButton = new ElaPushButton(QStringLiteral("取消"), this);
-    ElaPushButton* okButton = new ElaPushButton(QStringLiteral("确定"), this);
+    ElaPushButton* cancelButton = new ElaPushButton(tr("取消"), this);
+    ElaPushButton* okButton = new ElaPushButton(tr("确定"), this);
     cancelButton->setFixedHeight(32);
     okButton->setFixedHeight(32);
     QHBoxLayout* buttonLayout = new QHBoxLayout;
@@ -104,14 +104,14 @@ UserEditDialog::UserEditDialog(bool isEditMode, QWidget* parent)
     connect(okButton, &ElaPushButton::clicked, this, [this]() {
         if (username().trimmed().isEmpty())
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("用户名不能为空"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("用户名不能为空"), 2000, this);
             return;
         }
         if (!m_IsEditMode && password().isEmpty())
         {
-            ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("密码不能为空"), 2000, this);
+            ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("密码不能为空"), 2000, this);
             return;
         }
         accept();

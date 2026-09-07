@@ -46,6 +46,8 @@ private:
     void updateLoginUi();
     void updateQuotaLabel();
     void updateFrpcStatusUi();
+    // 将客户端登录/连接/frpc 状态写入 g_GlobalInformation（首页总览数据源）
+    void updateGlobalSession();
     void rebuildFrpcConfigIfRunning();
     QString frpcConfigSignature() const;
     void refreshTunnelTable();

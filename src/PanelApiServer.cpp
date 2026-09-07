@@ -1,5 +1,6 @@
 #include "PanelApiServer.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -43,6 +44,7 @@ QJsonObject tunnelToJson(const DatabaseManager::TunnelInfo& tunnel, bool frpsRun
     QString status;
     if (!tunnel.isEnabled)
     {
+        // 协议字段语言中立：不随服务端界面语言变化，客户端原样展示/比较
         status = QStringLiteral("已禁用");
     }
     else if (frpsRunning)
@@ -105,7 +107,7 @@ bool PanelApiServer::start(quint16 port, QString* errorMessage)
     {
         if (errorMessage)
         {
-            *errorMessage = QStringLiteral("面板服务监听失败: %1").arg(m_Server->errorString());
+            *errorMessage = tr("面板服务监听失败: %1").arg(m_Server->errorString());
         }
         return false;
     }
@@ -172,7 +174,7 @@ void PanelApiServer::onNewConnection()
             }
         });
         connect(socket, &QTcpSocket::disconnected, this, &PanelApiServer::onClientDisconnected);
-        emit logMessage(QStringLiteral("[%1] 客户端已连接: %2")
+        emit logMessage(tr("[%1] 客户端已连接: %2")
                             .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                                  socket->peerAddress().toString()));
     }
@@ -186,7 +188,7 @@ void PanelApiServer::onClientDisconnected()
         return;
     }
     // token 不绑定连接，断开时保留 token（过期由客户端管理）；这里仅记录日志
-    emit logMessage(QStringLiteral("[%1] 客户端已断开: %2")
+    emit logMessage(tr("[%1] 客户端已断开: %2")
                         .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                              socket->peerAddress().toString()));
     socket->deleteLater();
@@ -251,7 +253,7 @@ void PanelApiServer::handleRequest(QTcpSocket* socket, const QJsonObject& reques
                                 {QStringLiteral("quota"), quotaToJson(user, countUsedPorts(m_DatabaseManager, user.id))},
                                 {QStringLiteral("serverInfo"), serverInfo},
                             });
-        emit logMessage(QStringLiteral("[%1] 用户 %2 登录成功")
+        emit logMessage(tr("[%1] 用户 %2 登录成功")
                             .arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")),
                                  user.username));
         return;

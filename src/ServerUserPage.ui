@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>ServerUserPage</class>
  <widget class="QWidget" name="ServerUserPage">
@@ -54,6 +54,12 @@
        <layout class="QHBoxLayout" name="dbHeaderLayout">
         <item>
          <widget class="ElaText" name="dbLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>数据库文件</string>
           </property>
@@ -112,6 +118,12 @@
        <layout class="QHBoxLayout" name="settingLayout">
         <item>
          <widget class="ElaText" name="ipLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>公网 IP</string>
           </property>
@@ -132,6 +144,12 @@
         </item>
         <item>
          <widget class="ElaText" name="portLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>端口</string>
           </property>
@@ -176,6 +194,12 @@
        <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,1000">
         <item>
          <widget class="ElaText" name="dbPathLabel_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="text">
            <string>当前数据库：</string>
           </property>

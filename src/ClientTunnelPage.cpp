@@ -1,5 +1,6 @@
 #include "ClientTunnelPage.h"
 
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QFileDialog>
 #include <QHeaderView>
@@ -19,6 +20,8 @@
 #include "ElaTheme.h"
 #include "ElaToggleSwitch.h"
 #include "FrpsManager.h"
+#include "FrpUpdater.h"
+#include "Information.h"
 #include "PanelClient.h"
 #include "StatusDotDelegate.h"
 #include "TunnelEditDialog.h"
@@ -72,7 +75,16 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     m_Ui->quotaLabel->setTextPixelSize(12);
     m_Ui->logTitleLabel->setTextPixelSize(12);
     m_Ui->frpcStatusLabel->setTextPixelSize(12);
-    m_Ui->frpcPathEdit->setText(m_FrpcManager->frpsPath());
+    // frpc.exe 路径：无自定义选择时自动指向内置的 <程序目录>/frp/frpc.exe
+    {
+        QString frpcPath = m_FrpcManager->frpsPath();
+        if (frpcPath.isEmpty() && QFile::exists(FrpUpdater::frpcPath()))
+        {
+            frpcPath = FrpUpdater::frpcPath();
+            m_FrpcManager->setFrpsPath(frpcPath);
+        }
+        m_Ui->frpcPathEdit->setText(frpcPath);
+    }
 
     // 轮询刷新：3 秒一次，服务端远程变更（其他客户端/服务端页）自动同步
     m_PollTimer = new QTimer(this);
@@ -82,6 +94,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         {
             m_Client->requestTunnels();
         }
+        updateGlobalSession();
     });
     m_PollTimer->start();
 
@@ -92,27 +105,44 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
     // 库内样式表 background-color:transparent 会压制调色板 Base，文本区背景不跟随主题。
     // 双保险：① 显式设置 widget 与 viewport 的调色板 Base；② 样式表直接写主题背景色
     const auto updateLogTheme = [this](ElaThemeType::ThemeMode themeMode) {
-        const QColor base = ElaThemeColor(themeMode, BasicBase);
-        const QColor textColor = ElaThemeColor(themeMode, BasicText);
-        QPalette palette = m_Ui->logTextEdit->palette();
-        palette.setColor(QPalette::Base, base);
-        palette.setColor(QPalette::Text, textColor);
-        palette.setColor(QPalette::PlaceholderText, textColor);
-        m_Ui->logTextEdit->setPalette(palette);
-        m_Ui->logTextEdit->viewport()->setPalette(palette);
-        m_Ui->logTextEdit->setStyleSheet(
-            QStringLiteral("#ElaPlainTextEdit { background-color: %1; color: %2; }")
-                .arg(base.name(), textColor.name()));
+        if (m_Ui->logTextEdit->toPlainText().isEmpty()) {
+            if (themeMode==ElaThemeType::Light) {
+                m_Ui->logTextEdit->setStyleSheet(
+            QStringLiteral("background-color: %1; color: %2;")
+                .arg(ElaThemeColor(eTheme->getThemeMode(), BasicBase).name(),
+                     ElaThemeColor(eTheme->getThemeMode(), BasicTextInvert).name()));
+            } else if (themeMode == ElaThemeType::Dark) {
+                m_Ui->logTextEdit->setStyleSheet(
+            QStringLiteral("background-color: %1; color: %2;")
+                .arg(ElaThemeColor(eTheme->getThemeMode(), BasicBase).name(),
+                     ElaThemeColor(eTheme->getThemeMode(), BasicTextInvert).name()));
+            }
+        }else {
+            if (themeMode==ElaThemeType::Light) {
+                m_Ui->logTextEdit->setStyleSheet(
+            QStringLiteral("background-color: %1; color: %2;")
+                .arg(ElaThemeColor(eTheme->getThemeMode(), BasicBase).name(),
+                     ElaThemeColor(eTheme->getThemeMode(), BasicText).name()));
+            } else if (themeMode == ElaThemeType::Dark) {
+                m_Ui->logTextEdit->setStyleSheet(
+            QStringLiteral("background-color: %1; color: %2;")
+                .arg(ElaThemeColor(eTheme->getThemeMode(), BasicBase).name(),
+                     ElaThemeColor(eTheme->getThemeMode(), BasicText).name()));
+            }
+        }
     };
     updateLogTheme(eTheme->getThemeMode());
     connect(eTheme, &ElaTheme::themeModeChanged, this, updateLogTheme);
+    connect(m_Ui->logTextEdit,&QPlainTextEdit::textChanged,[this, updateLogTheme](){
+        updateLogTheme(eTheme->getThemeMode());
+    });
 
     // 隧道表模型：开关 / 名称 / 协议 / 远端端口 / 目标 / 运行状况 / 备注
     m_TunnelModel->setHorizontalHeaderLabels(
-        QStringList() << QStringLiteral("开关") << QStringLiteral("名称")
-                      << QStringLiteral("协议") << QStringLiteral("远端端口")
-                      << QStringLiteral("目标") << QStringLiteral("运行状况")
-                      << QStringLiteral("备注"));
+        QStringList() << tr("开关") << tr("名称")
+                      << tr("协议") << tr("远端端口")
+                      << tr("目标") << tr("运行状况")
+                      << tr("备注"));
     m_Ui->tunnelTableView->setModel(m_TunnelModel);
     m_Ui->tunnelTableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_Ui->tunnelTableView->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -146,7 +176,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
 
     // 客户端状态
     connect(m_Client, &PanelClient::connectionStateChanged, this, [this](bool connected) {
-        m_Ui->connStatusLabel->setText(connected ? QStringLiteral("已连接") : QStringLiteral("未连接"));
+        m_Ui->connStatusLabel->setText(connected ? tr("已连接") : tr("未连接"));
         if (connected && m_PendingLogin)
         {
             m_PendingLogin = false;
@@ -159,16 +189,16 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
                                                                  const QJsonObject& serverInfo) {
         m_Quota = quota;
         m_ServerInfo = serverInfo;
-        m_Ui->passwordEdit->clear();
+        // 记忆模式下密码保留在输入框内（不再清空，方便下次直接登录）
         updateQuotaLabel();
         m_LastTunnelsSignature.clear();
         m_Client->requestTunnels();
-        ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                               QStringLiteral("登录成功"), 2000, this);
+        ElaMessageBar::success(ElaMessageBarType::TopRight, tr("提示"),
+                               tr("登录成功"), 2000, this);
         updateLoginUi();
     });
     connect(m_Client, &PanelClient::loginFailed, this, [this](const QString& message) {
-        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("登录失败"),
+        ElaMessageBar::error(ElaMessageBarType::TopRight, tr("登录失败"),
                              message, 3000, this);
         updateLoginUi();
     });
@@ -181,7 +211,7 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
         if (m_FrpcManager->isRunning())
         {
             m_FrpcManager->stop();
-            appendLog(QStringLiteral("[%1] frpc 已停止（退出登录）")
+            appendLog(tr("[%1] frpc 已停止（退出登录）")
                           .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
         }
         refreshTunnelTable();
@@ -204,39 +234,46 @@ ClientTunnelPage::ClientTunnelPage(QWidget* parent)
             updateQuotaLabel();
         }
         rebuildFrpcConfigIfRunning();
+        updateGlobalSession();
     });
     connect(m_Client, &PanelClient::commandSucceeded, this, [this](const QString& cmd) {
         if (cmd == QStringLiteral("add_tunnel"))
         {
-            ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("隧道已添加"), 2000, this);
+            ElaMessageBar::success(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("隧道已添加"), 2000, this);
         }
         else if (cmd == QStringLiteral("update_tunnel"))
         {
-            ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("隧道已更新"), 2000, this);
+            ElaMessageBar::success(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("隧道已更新"), 2000, this);
         }
         else if (cmd == QStringLiteral("delete_tunnel"))
         {
-            ElaMessageBar::success(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("隧道已删除"), 2000, this);
+            ElaMessageBar::success(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("隧道已删除"), 2000, this);
         }
         m_Client->requestTunnels();
     });
     connect(m_Client, &PanelClient::commandFailed, this, [this](const QString&, const QString& message) {
-        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+        ElaMessageBar::error(ElaMessageBarType::TopRight, tr("提示"),
                              message, 3000, this);
         m_Client->requestTunnels(); // 刷新以还原状态
     });
     connect(m_Client, &PanelClient::logMessage, this, &ClientTunnelPage::appendLog);
 
-    // 恢复上次登录信息
+    // 恢复上次登录信息（密码为 Base64 编码）
     QSettings settings(QCoreApplication::applicationDirPath() + QStringLiteral("/config.ini"),
                        QSettings::IniFormat);
     settings.beginGroup(kSettingsSection);
     m_Ui->serverIpEdit->setText(settings.value(QStringLiteral("host"), QStringLiteral("127.0.0.1")).toString());
     m_Ui->serverPortEdit->setText(settings.value(QStringLiteral("port"), QStringLiteral("7000")).toString());
     m_Ui->usernameEdit->setText(settings.value(QStringLiteral("username")).toString());
+    const QString encodedPassword = settings.value(QStringLiteral("password")).toString();
+    if (!encodedPassword.isEmpty())
+    {
+        m_Ui->passwordEdit->setText(
+            QString::fromUtf8(QByteArray::fromBase64(encodedPassword.toLatin1())));
+    }
     settings.endGroup();
 
     updateLoginUi();
@@ -256,6 +293,7 @@ void ClientTunnelPage::showEvent(QShowEvent* event)
         m_LastTunnelsSignature.clear();
         m_Client->requestTunnels();
     }
+    updateGlobalSession();
 }
 
 void ClientTunnelPage::onLoginClicked()
@@ -266,35 +304,37 @@ void ClientTunnelPage::onLoginClicked()
     const QString password = m_Ui->passwordEdit->text();
     if (host.isEmpty())
     {
-        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                               QStringLiteral("请输入服务器 IP"), 2000, this);
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                               tr("请输入服务器 IP"), 2000, this);
         return;
     }
     bool portOk = false;
     const int portValue = portText.toInt(&portOk);
     if (!portOk || portValue < 1 || portValue > 65535)
     {
-        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                               QStringLiteral("端口必须是 1-65535 的整数"), 2000, this);
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                               tr("端口必须是 1-65535 的整数"), 2000, this);
         return;
     }
     if (username.isEmpty() || password.isEmpty())
     {
-        ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                               QStringLiteral("请输入用户名和密码"), 2000, this);
+        ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                               tr("请输入用户名和密码"), 2000, this);
         return;
     }
 
-    // 记住服务器与用户名
+    // 记住服务器与用户名（密码以 Base64 编码存储于本机 config.ini）
     QSettings settings(QCoreApplication::applicationDirPath() + QStringLiteral("/config.ini"),
                        QSettings::IniFormat);
     settings.beginGroup(kSettingsSection);
     settings.setValue(QStringLiteral("host"), host);
     settings.setValue(QStringLiteral("port"), portText);
     settings.setValue(QStringLiteral("username"), username);
+    settings.setValue(QStringLiteral("password"),
+                      QString::fromLatin1(password.toUtf8().toBase64()));
     settings.endGroup();
 
-    appendLog(QStringLiteral("[%1] 正在连接 %2:%3")
+    appendLog(tr("[%1] 正在连接 %2:%3")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), host, portText));
     m_PendingLogin = true;
     m_Client->connectToServer(host, static_cast<quint16>(portValue));
@@ -304,7 +344,7 @@ void ClientTunnelPage::onLogoutClicked()
 {
     m_PendingLogin = false;
     m_Client->logout();
-    appendLog(QStringLiteral("[%1] 已退出登录")
+    appendLog(tr("[%1] 已退出登录")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
 }
 
@@ -317,11 +357,11 @@ void ClientTunnelPage::onAddTunnel()
 {
     if (!m_Client->isLoggedIn())
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先登录"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("请先登录"), 2000, this);
         return;
     }
-    TunnelEditDialog dialog(false, this);
+    TunnelEditDialog dialog(false, QStringLiteral("client"), this);
     if (dialog.exec() != QDialog::Accepted)
     {
         return;
@@ -335,15 +375,15 @@ void ClientTunnelPage::onEditTunnel()
 {
     if (!m_Client->isLoggedIn())
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先登录"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("请先登录"), 2000, this);
         return;
     }
     const int id = selectedTunnelId();
     if (id < 0)
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先在列表中选择要修改的隧道"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("请先在列表中选择要修改的隧道"), 2000, this);
         return;
     }
     for (const QJsonValue& value : m_Tunnels)
@@ -351,7 +391,7 @@ void ClientTunnelPage::onEditTunnel()
         const QJsonObject tunnel = value.toObject();
         if (tunnel.value(QStringLiteral("id")).toInt() == id)
         {
-            TunnelEditDialog dialog(true, this);
+            TunnelEditDialog dialog(true, QStringLiteral("client"), this);
             dialog.setName(jsonString(tunnel, QStringLiteral("name")));
             dialog.setProtocol(jsonString(tunnel, QStringLiteral("protocol")));
             dialog.setRemotePort(jsonInt(tunnel, QStringLiteral("remotePort")));
@@ -370,36 +410,36 @@ void ClientTunnelPage::onEditTunnel()
             return;
         }
     }
-    ElaMessageBar::warning(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                           QStringLiteral("未找到该隧道"), 2000, this);
+    ElaMessageBar::warning(ElaMessageBarType::TopRight, tr("提示"),
+                           tr("未找到该隧道"), 2000, this);
 }
 
 void ClientTunnelPage::onDeleteTunnel()
 {
     if (!m_Client->isLoggedIn())
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先登录"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("请先登录"), 2000, this);
         return;
     }
     const int id = selectedTunnelId();
     if (id < 0)
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先在列表中选择要删除的隧道"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("请先在列表中选择要删除的隧道"), 2000, this);
         return;
     }
     ElaContentDialog* dialog = new ElaContentDialog(this);
-    dialog->setLeftButtonText(QStringLiteral("取消"));
+    dialog->setLeftButtonText(tr("取消"));
     dialog->setMiddleButtonText(QString());
-    dialog->setRightButtonText(QStringLiteral("删除"));
+    dialog->setRightButtonText(tr("删除"));
     QWidget* centralWidget = new QWidget(dialog);
     QVBoxLayout* centralLayout = new QVBoxLayout(centralWidget);
     centralLayout->setContentsMargins(15, 14, 15, 8);
-    ElaText* titleText = new ElaText(QStringLiteral("确认删除"), centralWidget);
+    ElaText* titleText = new ElaText(tr("确认删除"), centralWidget);
     titleText->setTextStyle(ElaTextType::Body);
     titleText->setTextPixelSize(15);
-    ElaText* contentText = new ElaText(QStringLiteral("确定要删除该隧道吗？"), centralWidget);
+    ElaText* contentText = new ElaText(tr("确定要删除该隧道吗？"), centralWidget);
     contentText->setTextStyle(ElaTextType::Body);
     contentText->setTextPixelSize(13);
     centralLayout->addWidget(titleText);
@@ -431,8 +471,8 @@ void ClientTunnelPage::onClearLog()
 void ClientTunnelPage::onBrowseFrpc()
 {
     const QString path = QFileDialog::getOpenFileName(
-        this, QStringLiteral("选择 frpc.exe"), QString(),
-        QStringLiteral("frpc (*.exe);;所有文件 (*)"));
+        this, tr("选择 frpc.exe"), QString(),
+        tr("frpc (*.exe);;所有文件 (*)"));
     if (path.isEmpty())
     {
         return;
@@ -446,14 +486,14 @@ void ClientTunnelPage::onToggleFrpc()
     if (m_FrpcManager->isRunning())
     {
         m_FrpcManager->stop();
-        appendLog(QStringLiteral("[%1] frpc 已停止")
+        appendLog(tr("[%1] frpc 已停止")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
         return;
     }
     if (!m_Client->isLoggedIn())
     {
-        ElaMessageBar::information(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                                   QStringLiteral("请先登录"), 2000, this);
+        ElaMessageBar::information(ElaMessageBarType::TopRight, tr("提示"),
+                                   tr("请先登录"), 2000, this);
         return;
     }
 
@@ -464,8 +504,8 @@ void ClientTunnelPage::onToggleFrpc()
     const QString token = m_ServerInfo.value(QStringLiteral("frpsToken")).toString();
     if (serverAddr.isEmpty() || token.isEmpty() || serverPort <= 0 || serverPort > 65535)
     {
-        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
-                             QStringLiteral("缺少 frpc 连接参数，请重新登录"), 2500, this);
+        ElaMessageBar::error(ElaMessageBarType::TopRight, tr("提示"),
+                             tr("缺少 frpc 连接参数，请重新登录"), 2500, this);
         return;
     }
 
@@ -475,20 +515,20 @@ void ClientTunnelPage::onToggleFrpc()
                                          static_cast<quint16>(serverPort), token,
                                          m_Tunnels, &errorMessage))
     {
-        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+        ElaMessageBar::error(ElaMessageBarType::TopRight, tr("提示"),
                              errorMessage, 3000, this);
         return;
     }
     if (!m_FrpcManager->start(configPath, &errorMessage))
     {
-        ElaMessageBar::error(ElaMessageBarType::TopRight, QStringLiteral("提示"),
+        ElaMessageBar::error(ElaMessageBarType::TopRight, tr("提示"),
                              errorMessage, 3000, this);
-        appendLog(QStringLiteral("[%1] frpc 启动失败: %2")
+        appendLog(tr("[%1] frpc 启动失败: %2")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
         return;
     }
     m_LastFrpcConfigSignature = frpcConfigSignature();
-    appendLog(QStringLiteral("[%1] frpc 已启动 (配置: %2，服务器 %3:%4)")
+    appendLog(tr("[%1] frpc 已启动 (配置: %2，服务器 %3:%4)")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
                        configPath, serverAddr)
                   .arg(serverPort));
@@ -497,10 +537,11 @@ void ClientTunnelPage::onToggleFrpc()
 void ClientTunnelPage::updateFrpcStatusUi()
 {
     const bool running = m_FrpcManager->isRunning();
-    m_Ui->frpcStartButton->setText(running ? QStringLiteral("停止") : QStringLiteral("启动"));
-    m_Ui->frpcStatusLabel->setText(running ? QStringLiteral("运行中") : QStringLiteral("未运行"));
+    m_Ui->frpcStartButton->setText(running ? tr("停止") : tr("启动"));
+    m_Ui->frpcStatusLabel->setText(running ? tr("运行中") : tr("未运行"));
     m_Ui->frpcStatusLight->setColor(running ? QColor(0x4C, 0xAF, 0x50)
                                             : QColor(0x9E, 0x9E, 0x9E));
+    updateGlobalSession();
 }
 
 void ClientTunnelPage::rebuildFrpcConfigIfRunning()
@@ -532,18 +573,18 @@ void ClientTunnelPage::rebuildFrpcConfigIfRunning()
                                          static_cast<quint16>(serverPort), token,
                                          m_Tunnels, &errorMessage))
     {
-        appendLog(QStringLiteral("[%1] frpc 配置重新生成失败: %2")
+        appendLog(tr("[%1] frpc 配置重新生成失败: %2")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
         return;
     }
     m_FrpcManager->stop();
     if (!m_FrpcManager->start(configPath, &errorMessage))
     {
-        appendLog(QStringLiteral("[%1] frpc 重启失败: %2")
+        appendLog(tr("[%1] frpc 重启失败: %2")
                       .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")), errorMessage));
         return;
     }
-    appendLog(QStringLiteral("[%1] frpc 配置已更新并重启")
+    appendLog(tr("[%1] frpc 配置已更新并重启")
                   .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss"))));
 }
 
@@ -588,14 +629,39 @@ void ClientTunnelPage::updateLoginUi()
     m_Ui->editTunnelButton->setEnabled(loggedIn);
     m_Ui->deleteTunnelButton->setEnabled(loggedIn);
     m_Ui->frpcStartButton->setEnabled(loggedIn);
-    m_Ui->connStatusLabel->setText(connected ? QStringLiteral("已连接") : QStringLiteral("未连接"));
+    m_Ui->connStatusLabel->setText(connected ? tr("已连接") : tr("未连接"));
+    updateGlobalSession();
+}
+
+void ClientTunnelPage::updateGlobalSession()
+{
+    GlobalInformation& g = g_GlobalInformation;
+    g.clientConnected = m_Client->isConnected();
+    g.clientLoggedIn = m_Client->isLoggedIn();
+    g.clientUserName = m_Client->username();
+    g.clientServerHost = m_Ui->serverIpEdit->text().trimmed();
+    g.clientServerPort = m_Ui->serverPortEdit->text().trimmed().toInt();
+    g.frpcRunning = m_FrpcManager->isRunning();
+    // frpc 目标 = 本机登录的面板服务器地址 + 登录响应下发的 frps 绑定端口
+    g.frpcServerHost = g.clientServerHost;
+    g.frpcServerPort = m_ServerInfo.value(QStringLiteral("frpsBindPort")).toVariant().toString().toInt();
+    g.clientTunnelsCount = m_Tunnels.size();
+    int enabledCount = 0;
+    for (const QJsonValue& value : m_Tunnels)
+    {
+        if (value.toObject().value(QStringLiteral("enabled")).toBool())
+        {
+            ++enabledCount;
+        }
+    }
+    g.clientTunnelsEnabledCount = enabledCount;
 }
 
 void ClientTunnelPage::updateQuotaLabel()
 {
     if (!m_Client->isLoggedIn())
     {
-        m_Ui->quotaLabel->setText(QStringLiteral("未登录"));
+        m_Ui->quotaLabel->setText(tr("未登录"));
         return;
     }
     const int remoteMin = jsonInt(m_Quota, QStringLiteral("remoteMin"));
@@ -604,7 +670,7 @@ void ClientTunnelPage::updateQuotaLabel()
     const int localMax = jsonInt(m_Quota, QStringLiteral("localMax"));
     const int maxCount = jsonInt(m_Quota, QStringLiteral("maxCount"));
     const int usedCount = jsonInt(m_Quota, QStringLiteral("usedCount"));
-    QString text = QStringLiteral("配额：远端 %1-%2 | 本地 %3-%4 | 已用 %5/%6")
+    QString text = tr("配额：远端 %1-%2 | 本地 %3-%4 | 已用 %5/%6")
                        .arg(remoteMin)
                        .arg(remoteMax)
                        .arg(localMin)
@@ -615,7 +681,7 @@ void ClientTunnelPage::updateQuotaLabel()
     const QString publicPort = jsonString(m_ServerInfo, QStringLiteral("publicPort"));
     if (!publicIp.isEmpty() || !publicPort.isEmpty())
     {
-        text += QStringLiteral(" | 服务端公网 %1:%2").arg(publicIp, publicPort);
+        text += tr(" | 服务端公网 %1:%2").arg(publicIp, publicPort);
     }
     m_Ui->quotaLabel->setText(text);
 }
@@ -693,9 +759,9 @@ void ClientTunnelPage::refreshTunnelTable()
             m_Client->setTunnelEnabled(tunnelId, checked);
             // 乐观更新状态文本，服务端确认后 tunnelsReceived 会整体刷新
             const QString newStatus = checked
-                                          ? (m_FrpsRunning ? QStringLiteral("运行中")
-                                                           : QStringLiteral("未运行"))
-                                          : QStringLiteral("已禁用");
+                                          ? (m_FrpsRunning ? tr("运行中")
+                                                           : tr("未运行"))
+                                          : tr("已禁用");
             for (int statusRow = 0; statusRow < m_TunnelModel->rowCount(); ++statusRow)
             {
                 if (m_TunnelModel->item(statusRow, 0)->data(Qt::UserRole).toInt() == tunnelId)

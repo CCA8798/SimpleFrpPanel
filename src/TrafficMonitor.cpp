@@ -147,9 +147,9 @@ void TrafficMonitor::onReplyFinished(QNetworkReply* reply)
             const int httpStatus =
                 reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             const QString hint = (httpStatus == 404)
-                                     ? QStringLiteral("隧道未建立（frpc 未连接或隧道未启用）")
-                                     : QStringLiteral("frps 未运行或仪表盘未启用/端口不符");
-            emit logMessage(QStringLiteral("[%1] 流量采样失败（%2）: %3")
+                                     ? tr("隧道未建立（frpc 未连接或隧道未启用）")
+                                     : tr("frps 未运行或仪表盘未启用/端口不符");
+            emit logMessage(tr("[%1] 流量采样失败（%2）: %3")
                                 .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
                                      hint, reply->errorString()));
         }
@@ -158,7 +158,7 @@ void TrafficMonitor::onReplyFinished(QNetworkReply* reply)
     if (!m_HasLoggedSuccess)
     {
         m_HasLoggedSuccess = true;
-        emit logMessage(QStringLiteral("[%1] 流量采样已连接 frps 仪表盘（隧道 %2）")
+        emit logMessage(tr("[%1] 流量采样已连接 frps 仪表盘（隧道 %2）")
                             .arg(QTime::currentTime().toString(QStringLiteral("HH:mm:ss")),
                                  tunnelName));
     }

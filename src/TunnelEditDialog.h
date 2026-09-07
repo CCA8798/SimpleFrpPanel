@@ -9,12 +9,17 @@ class ElaLineEdit;
 
 // 新增/修改隧道对话框（基于 ElaDialog，全部使用 ElaWidgetTools 组件）。
 // 协议为 http/https 时启用自定义域名输入。
+// 新增模式带"填写记忆"：服务端与客户端各自记忆一份（draftKey 区分），
+// 每次打开自动填充上一次填写的数据（确定/取消都会保存），便于连续添加相似隧道。
 class TunnelEditDialog : public ElaDialog
 {
     Q_OBJECT
 
 public:
-    explicit TunnelEditDialog(bool isEditMode, QWidget* parent = nullptr);
+    // isEditMode：true=修改既有隧道（不读取/不保存草稿）
+    // draftKey：草稿记忆分组标识，如 "server" / "client"（空 = 共用默认组）
+    explicit TunnelEditDialog(bool isEditMode, const QString& draftKey,
+                              QWidget* parent = nullptr);
 
     QString name() const;
     QString protocol() const;
@@ -41,8 +46,10 @@ protected:
 
 private:
     void saveDraft() const;
+    QString draftSection() const;
 
     bool m_IsEditMode = false;
+    QString m_DraftKey;
     ElaLineEdit* m_NameEdit = nullptr;
     ElaComboBox* m_ProtocolCombo = nullptr;
     ElaLineEdit* m_RemotePortEdit = nullptr;

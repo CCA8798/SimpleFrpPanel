@@ -114,6 +114,13 @@ public:
     // 某用户历史上出现过的隧道名（含已删除，用于查询下拉框）
     QStringList queryTrafficTunnelNames(int userId) const;
 
+    // ---- 总览统计（当前数据库，首页总览用）----
+    int countUsers(bool enabledOnly) const;   // 用户数（可按启用状态过滤）
+    int countTunnels(bool enabledOnly) const; // 全部用户的隧道数（可按启用状态过滤）
+    // 日期区间内全库流量合计（含已删除用户/隧道的快照记录）；空串 = 不限
+    TrafficSummary queryTrafficRangeTotal(const QString& dateFrom,
+                                          const QString& dateTo) const;
+
     // ---- 工具 ----
     static QString hashPassword(const QString& password); // 加盐 SHA-256，格式 "盐:摘要"
     static bool verifyPassword(const QString& password, const QString& storedHash);

@@ -57,6 +57,11 @@ private:
     bool checkFrpsPortsAvailable(int bindPort, int webPort, QString* errorMessage) const;
     void updatePanelServiceUi();
     void syncPanelServiceWithDb();
+    // 将服务端运行状态/统计数据写入 g_GlobalInformation（首页总览数据源）
+    void updateGlobalOverview();
+    // 记忆/恢复上次选择的数据库与用户（config.ini 的 server_state 组）
+    void saveServerUiState();
+    void applyRememberedUiState();
     int selectedTunnelId() const;
     void appendLog(const QString& text);
     void updateFrpsStatusUi();
@@ -79,6 +84,9 @@ private:
     // 轮询刷新
     QTimer* m_PollTimer = nullptr;
     QString m_LastSignature;
+    // 上次选择的数据库/用户（重启后恢复）
+    QString m_RememberedDbName;
+    int m_RememberedUserId = -1;
 };
 
 #endif // SERVERTUNNELPAGE_H

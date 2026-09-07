@@ -286,17 +286,17 @@ bool DatabaseManager::addUser(const QString& username, const QString& password,
     const QString name = username.trimmed();
     if (name.isEmpty())
     {
-        setError(errorMessage, QStringLiteral("用户名不能为空"));
+        setError(errorMessage, tr("用户名不能为空"));
         return false;
     }
     if (password.isEmpty())
     {
-        setError(errorMessage, QStringLiteral("密码不能为空"));
+        setError(errorMessage, tr("密码不能为空"));
         return false;
     }
     if (userExists(name))
     {
-        setError(errorMessage, QStringLiteral("用户名已存在"));
+        setError(errorMessage, tr("用户名已存在"));
         return false;
     }
 
@@ -325,12 +325,12 @@ bool DatabaseManager::updateUser(int id, const QString& newUsername, const QStri
     const QString name = newUsername.trimmed();
     if (name.isEmpty())
     {
-        setError(errorMessage, QStringLiteral("用户名不能为空"));
+        setError(errorMessage, tr("用户名不能为空"));
         return false;
     }
     if (!isOpen())
     {
-        setError(errorMessage, QStringLiteral("未打开数据库"));
+        setError(errorMessage, tr("未打开数据库"));
         return false;
     }
 
@@ -342,7 +342,7 @@ bool DatabaseManager::updateUser(int id, const QString& newUsername, const QStri
         checkQuery.addBindValue(id);
         if (checkQuery.exec() && checkQuery.next())
         {
-            setError(errorMessage, QStringLiteral("用户名已存在"));
+            setError(errorMessage, tr("用户名已存在"));
             return false;
         }
     }
@@ -461,18 +461,18 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
 {
     if (!isOpen())
     {
-        setError(errorMessage, QStringLiteral("未打开数据库"));
+        setError(errorMessage, tr("未打开数据库"));
         return false;
     }
     const QString tunnelName = name.trimmed();
     if (tunnelName.isEmpty())
     {
-        setError(errorMessage, QStringLiteral("隧道名称不能为空"));
+        setError(errorMessage, tr("隧道名称不能为空"));
         return false;
     }
     if (tunnelNameExists(userId, tunnelName))
     {
-        setError(errorMessage, QStringLiteral("该用户下已存在同名隧道"));
+        setError(errorMessage, tr("该用户下已存在同名隧道"));
         return false;
     }
     const QString tunnelProtocol = protocol.trimmed().isEmpty() ? QStringLiteral("tcp") : protocol.trimmed();
@@ -480,17 +480,17 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
                              || tunnelProtocol == QStringLiteral("https"));
     if (!isHttpLike && (remotePort < 1 || remotePort > 65535))
     {
-        setError(errorMessage, QStringLiteral("远端端口必须是 1-65535 的整数"));
+        setError(errorMessage, tr("远端端口必须是 1-65535 的整数"));
         return false;
     }
     if (localPort < 1 || localPort > 65535)
     {
-        setError(errorMessage, QStringLiteral("目标端口必须是 1-65535 的整数"));
+        setError(errorMessage, tr("目标端口必须是 1-65535 的整数"));
         return false;
     }
     if (localIp.trimmed().isEmpty())
     {
-        setError(errorMessage, QStringLiteral("目标内网 IP 不能为空"));
+        setError(errorMessage, tr("目标内网 IP 不能为空"));
         return false;
     }
 
@@ -498,13 +498,13 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
     UserInfo quotaUser;
     if (!loadUserQuota(userId, &quotaUser))
     {
-        setError(errorMessage, QStringLiteral("用户不存在"));
+        setError(errorMessage, tr("用户不存在"));
         return false;
     }
     if (!isHttpLike
         && (remotePort < quotaUser.remotePortMin || remotePort > quotaUser.remotePortMax))
     {
-        setError(errorMessage, QStringLiteral("远端端口 %1 超出该用户允许范围 %2-%3")
+        setError(errorMessage, tr("远端端口 %1 超出该用户允许范围 %2-%3")
                                 .arg(remotePort)
                                 .arg(quotaUser.remotePortMin)
                                 .arg(quotaUser.remotePortMax));
@@ -512,7 +512,7 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
     }
     if (localPort < quotaUser.localPortMin || localPort > quotaUser.localPortMax)
     {
-        setError(errorMessage, QStringLiteral("本地端口 %1 超出该用户允许范围 %2-%3")
+        setError(errorMessage, tr("本地端口 %1 超出该用户允许范围 %2-%3")
                                 .arg(localPort)
                                 .arg(quotaUser.localPortMin)
                                 .arg(quotaUser.localPortMax));
@@ -532,7 +532,7 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
         }
         if (usedCount + 1 > quotaUser.maxPortCount)
         {
-            setError(errorMessage, QStringLiteral("该用户端口数量已达上限 %1（当前已用 %2）")
+            setError(errorMessage, tr("该用户端口数量已达上限 %1（当前已用 %2）")
                                     .arg(quotaUser.maxPortCount)
                                     .arg(usedCount));
             return false;
@@ -541,14 +541,14 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
         // 端口占用检测：① 库内唯一（任何用户、含禁用中的隧道都不得复用同一远端端口）
         if (remotePortInUse(remotePort, -1))
         {
-            setError(errorMessage, QStringLiteral("远端端口 %1 已被其他隧道占用，请更换端口")
+            setError(errorMessage, tr("远端端口 %1 已被其他隧道占用，请更换端口")
                                     .arg(remotePort));
             return false;
         }
         // ② 本机监听检测：端口可能被其他程序占用
         if (!PortChecker::isPortFree(static_cast<quint16>(remotePort), tunnelProtocol))
         {
-            setError(errorMessage, QStringLiteral("远端端口 %1 当前被本机其他程序占用，请更换端口")
+            setError(errorMessage, tr("远端端口 %1 当前被本机其他程序占用，请更换端口")
                                     .arg(remotePort));
             return false;
         }
@@ -574,7 +574,7 @@ bool DatabaseManager::addTunnel(int userId, const QString& name, const QString& 
         const QString errorText = query.lastError().text();
         if (errorText.contains(QStringLiteral("FOREIGN KEY")))
         {
-            setError(errorMessage, QStringLiteral("用户不存在或已被删除，请刷新后重试"));
+            setError(errorMessage, tr("用户不存在或已被删除，请刷新后重试"));
         }
         else
         {
@@ -592,13 +592,13 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
 {
     if (!isOpen())
     {
-        setError(errorMessage, QStringLiteral("未打开数据库"));
+        setError(errorMessage, tr("未打开数据库"));
         return false;
     }
     const QString tunnelName = name.trimmed();
     if (tunnelName.isEmpty())
     {
-        setError(errorMessage, QStringLiteral("隧道名称不能为空"));
+        setError(errorMessage, tr("隧道名称不能为空"));
         return false;
     }
     const QString tunnelProtocol = protocol.trimmed().isEmpty() ? QStringLiteral("tcp") : protocol.trimmed();
@@ -606,17 +606,17 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
                              || tunnelProtocol == QStringLiteral("https"));
     if (!isHttpLike && (remotePort < 1 || remotePort > 65535))
     {
-        setError(errorMessage, QStringLiteral("远端端口必须是 1-65535 的整数"));
+        setError(errorMessage, tr("远端端口必须是 1-65535 的整数"));
         return false;
     }
     if (localPort < 1 || localPort > 65535)
     {
-        setError(errorMessage, QStringLiteral("目标端口必须是 1-65535 的整数"));
+        setError(errorMessage, tr("目标端口必须是 1-65535 的整数"));
         return false;
     }
     if (localIp.trimmed().isEmpty())
     {
-        setError(errorMessage, QStringLiteral("目标内网 IP 不能为空"));
+        setError(errorMessage, tr("目标内网 IP 不能为空"));
         return false;
     }
 
@@ -643,7 +643,7 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
         checkQuery.addBindValue(id);
         if (checkQuery.exec() && checkQuery.next())
         {
-            setError(errorMessage, QStringLiteral("该用户下已存在同名隧道"));
+            setError(errorMessage, tr("该用户下已存在同名隧道"));
             return false;
         }
     }
@@ -652,13 +652,13 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
     UserInfo quotaUser;
     if (!loadUserQuota(tunnelUserId, &quotaUser))
     {
-        setError(errorMessage, QStringLiteral("用户不存在"));
+        setError(errorMessage, tr("用户不存在"));
         return false;
     }
     if (!isHttpLike
         && (remotePort < quotaUser.remotePortMin || remotePort > quotaUser.remotePortMax))
     {
-        setError(errorMessage, QStringLiteral("远端端口 %1 超出该用户允许范围 %2-%3")
+        setError(errorMessage, tr("远端端口 %1 超出该用户允许范围 %2-%3")
                                 .arg(remotePort)
                                 .arg(quotaUser.remotePortMin)
                                 .arg(quotaUser.remotePortMax));
@@ -666,7 +666,7 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
     }
     if (localPort < quotaUser.localPortMin || localPort > quotaUser.localPortMax)
     {
-        setError(errorMessage, QStringLiteral("本地端口 %1 超出该用户允许范围 %2-%3")
+        setError(errorMessage, tr("本地端口 %1 超出该用户允许范围 %2-%3")
                                 .arg(localPort)
                                 .arg(quotaUser.localPortMin)
                                 .arg(quotaUser.localPortMax));
@@ -687,7 +687,7 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
         }
         if (usedCount + 1 > quotaUser.maxPortCount)
         {
-            setError(errorMessage, QStringLiteral("该用户端口数量已达上限 %1（当前已用 %2）")
+            setError(errorMessage, tr("该用户端口数量已达上限 %1（当前已用 %2）")
                                     .arg(quotaUser.maxPortCount)
                                     .arg(usedCount));
             return false;
@@ -696,7 +696,7 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
         // 端口占用检测：① 库内唯一（排除自身；任何用户、含禁用中的隧道都不得复用）
         if (remotePortInUse(remotePort, id))
         {
-            setError(errorMessage, QStringLiteral("远端端口 %1 已被其他隧道占用，请更换端口")
+            setError(errorMessage, tr("远端端口 %1 已被其他隧道占用，请更换端口")
                                     .arg(remotePort));
             return false;
         }
@@ -704,7 +704,7 @@ bool DatabaseManager::updateTunnel(int id, const QString& name, const QString& p
         if (remotePort != currentRemotePort
             && !PortChecker::isPortFree(static_cast<quint16>(remotePort), tunnelProtocol))
         {
-            setError(errorMessage, QStringLiteral("远端端口 %1 当前被本机其他程序占用，请更换端口")
+            setError(errorMessage, tr("远端端口 %1 当前被本机其他程序占用，请更换端口")
                                     .arg(remotePort));
             return false;
         }
@@ -958,6 +958,72 @@ QStringList DatabaseManager::queryTrafficTunnelNames(int userId) const
         }
     }
     return names;
+}
+
+int DatabaseManager::countUsers(bool enabledOnly) const
+{
+    if (!isOpen())
+    {
+        return 0;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (enabledOnly)
+    {
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM users WHERE is_enabled = 1"));
+    }
+    else
+    {
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM users"));
+    }
+    return (query.exec() && query.next()) ? query.value(0).toInt() : 0;
+}
+
+int DatabaseManager::countTunnels(bool enabledOnly) const
+{
+    if (!isOpen())
+    {
+        return 0;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (enabledOnly)
+    {
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM tunnels WHERE is_enabled = 1"));
+    }
+    else
+    {
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM tunnels"));
+    }
+    return (query.exec() && query.next()) ? query.value(0).toInt() : 0;
+}
+
+DatabaseManager::TrafficSummary DatabaseManager::queryTrafficRangeTotal(const QString& dateFrom,
+                                                                        const QString& dateTo) const
+{
+    TrafficSummary summary;
+    if (!isOpen())
+    {
+        return summary;
+    }
+    QSqlQuery query(QSqlDatabase::database(kConnectionName));
+    if (dateFrom.trimmed().isEmpty() && dateTo.trimmed().isEmpty())
+    {
+        query.prepare(QStringLiteral(
+            "SELECT SUM(bytes_in), SUM(bytes_out) FROM traffic_records"));
+    }
+    else
+    {
+        query.prepare(QStringLiteral(
+            "SELECT SUM(bytes_in), SUM(bytes_out) FROM traffic_records"
+            " WHERE record_date BETWEEN ? AND ?"));
+        query.addBindValue(dateFrom.trimmed());
+        query.addBindValue(dateTo.trimmed());
+    }
+    if (query.exec() && query.next())
+    {
+        summary.bytesIn = query.value(0).toLongLong();
+        summary.bytesOut = query.value(1).toLongLong();
+    }
+    return summary;
 }
 
 QString DatabaseManager::hashPassword(const QString& password)

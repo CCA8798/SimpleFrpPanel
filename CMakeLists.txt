@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(SimpleFrpPanel VERSION 0.1.0 LANGUAGES CXX)
+project(SimpleFrpPanel VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -79,6 +79,10 @@ add_executable(SimpleFrpPanel WIN32
     src/HomePage.h
     src/HomePage.cpp
     src/HomePage.ui
+    src/OverviewCard.h
+    src/OverviewCard.cpp
+    src/SettingsDialog.h
+    src/SettingsDialog.cpp
     src/ServerTunnelPage.h
     src/ServerTunnelPage.cpp
     src/ServerTunnelPage.ui
@@ -99,6 +103,8 @@ add_executable(SimpleFrpPanel WIN32
     src/UserEditDialog.cpp
     src/FrpsManager.h
     src/FrpsManager.cpp
+    src/FrpUpdater.h
+    src/FrpUpdater.cpp
     src/TunnelEditDialog.h
     src/TunnelEditDialog.cpp
     src/StatusDotDelegate.h
@@ -111,6 +117,9 @@ add_executable(SimpleFrpPanel WIN32
     src/PanelApiServer.cpp
     src/PanelClient.h
     src/PanelClient.cpp
+        src/Information.h
+        src/Information.cpp
+        src/resources.qrc
 )
 
 # 使 uic 能解析 .ui 中"提升"的 Ela 控件头文件（ElaPushButton.h 等）

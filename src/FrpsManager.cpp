@@ -68,7 +68,7 @@ bool FrpsManager::generateConfig(const QString& configPath, quint16 bindPort,
     {
         if (errorMessage)
         {
-            *errorMessage = QStringLiteral("无法写入配置文件: %1").arg(configPath);
+            *errorMessage = tr("无法写入配置文件: %1").arg(configPath);
         }
         return false;
     }
@@ -114,7 +114,7 @@ bool FrpsManager::generateFrpcConfig(const QString& configPath, const QString& s
     {
         if (errorMessage)
         {
-            *errorMessage = QStringLiteral("无法写入配置文件: %1").arg(configPath);
+            *errorMessage = tr("无法写入配置文件: %1").arg(configPath);
         }
         return false;
     }
@@ -160,7 +160,7 @@ bool FrpsManager::generateFrpcConfig(const QString& configPath, const QString& s
     file.close();
     if (proxyCount == 0 && errorMessage)
     {
-        *errorMessage = QStringLiteral("没有启用的隧道，无法生成 frpc 配置");
+        *errorMessage = tr("没有启用的隧道，无法生成 frpc 配置");
     }
     return proxyCount > 0;
 }
@@ -175,7 +175,7 @@ bool FrpsManager::start(const QString& configPath, QString* errorMessage)
     {
         if (errorMessage)
         {
-            *errorMessage = QStringLiteral("尚未设置 frps.exe 路径");
+            *errorMessage = tr("尚未设置 frps.exe 路径");
         }
         return false;
     }
@@ -183,7 +183,7 @@ bool FrpsManager::start(const QString& configPath, QString* errorMessage)
     {
         if (errorMessage)
         {
-            *errorMessage = QStringLiteral("frps.exe 不存在: %1").arg(m_FrpsPath);
+            *errorMessage = tr("frps.exe 不存在: %1").arg(m_FrpsPath);
         }
         return false;
     }
@@ -195,7 +195,7 @@ bool FrpsManager::start(const QString& configPath, QString* errorMessage)
     {
         if (errorMessage)
         {
-            *errorMessage = QStringLiteral("frps 启动失败: %1").arg(m_Process->errorString());
+            *errorMessage = tr("frps 启动失败: %1").arg(m_Process->errorString());
         }
         return false;
     }
